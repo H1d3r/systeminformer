@@ -83,7 +83,7 @@ LONG PhpCompareListViewItems(
     _In_ LONG Y,
     _In_ PVOID XParam,
     _In_ PVOID YParam,
-    _In_ ULONG Column,
+    _In_ LONG Column,
     _In_ BOOLEAN EnableDefault
     );
 
@@ -91,7 +91,7 @@ LONG PhpDefaultCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
     _In_ LONG X,
     _In_ LONG Y,
-    _In_ ULONG Column
+    _In_ LONG Column
     );
 
 /**
@@ -910,7 +910,7 @@ LONG PhpExtendedListViewCompareFastFunc(
     PPH_EXTLV_CONTEXT context = (PPH_EXTLV_CONTEXT)lParamSort;
     LONG result;
     ULONG i;
-    PULONG fallbackColumns;
+    PLONG fallbackColumns;
 
     if (!lParam1 || !lParam2)
         return 0;
@@ -944,7 +944,7 @@ LONG PhpExtendedListViewCompareFastFunc(
 
     for (i = context->NumberOfFallbackColumns; i != 0; i--)
     {
-        ULONG fallbackColumn = *fallbackColumns++;
+        LONG fallbackColumn = *fallbackColumns++;
 
         if (fallbackColumn == context->SortColumn)
             continue;
@@ -958,13 +958,13 @@ LONG PhpExtendedListViewCompareFastFunc(
     return 0;
 }
 
-FORCEINLINE LONG PhpCompareListViewItems(
+LONG PhpCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
     _In_ LONG X,
     _In_ LONG Y,
     _In_ PVOID XParam,
     _In_ PVOID YParam,
-    _In_ ULONG Column,
+    _In_ LONG Column,
     _In_ BOOLEAN EnableDefault
     )
 {
@@ -1001,7 +1001,7 @@ LONG PhpDefaultCompareListViewItems(
     _In_ PPH_EXTLV_CONTEXT Context,
     _In_ LONG X,
     _In_ LONG Y,
-    _In_ ULONG Column
+    _In_ LONG Column
     )
 {
     WCHAR xText[MAX_PATH + 1];
@@ -1014,7 +1014,7 @@ LONG PhpDefaultCompareListViewItems(
     item.iItem = X;
     item.iSubItem = Column;
     item.pszText = xText;
-    item.cchTextMax = MAX_PATH;
+    item.cchTextMax = MAX_PATH + 1;
 
     xText[0] = UNICODE_NULL;
 
@@ -1027,7 +1027,7 @@ LONG PhpDefaultCompareListViewItems(
 
     item.iItem = Y;
     item.pszText = yText;
-    item.cchTextMax = MAX_PATH;
+    item.cchTextMax = MAX_PATH + 1;
 
     yText[0] = UNICODE_NULL;
 
