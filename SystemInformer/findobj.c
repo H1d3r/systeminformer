@@ -1265,7 +1265,7 @@ INT_PTR CALLBACK PhFindObjectsDlgProc(
             context->TreeNewHandle = GetDlgItem(hwndDlg, IDC_TREELIST);
             context->TypeWindowHandle = GetDlgItem(hwndDlg, IDC_FILTERTYPE);
             context->SearchWindowHandle = GetDlgItem(hwndDlg, IDC_FILTER);
-            context->TypeWindowFont = PhDuplicateFont(PhApplicationFont);
+            context->TypeWindowFont = PhCreateApplicationFont(PhGetWindowDpi(hwndDlg));
             context->WindowText = PhGetWindowText(hwndDlg);
 
             PhInitializeLayoutManager(&context->LayoutManager, hwndDlg);
@@ -1700,7 +1700,7 @@ INT_PTR CALLBACK PhFindObjectsDlgProc(
         {
             HFONT typeWindowFont;
 
-            if (typeWindowFont = PhDuplicateFont(PhApplicationFont))
+            if (typeWindowFont = PhCreateApplicationFont(LOWORD(wParam)))
                 PhReplaceWindowFont(&context->TypeWindowFont, context->TypeWindowHandle, typeWindowFont, TRUE);
 
             PhLayoutManagerUpdate(&context->LayoutManager, LOWORD(wParam));
