@@ -389,7 +389,7 @@ VOID PhMwpInitializeProviders(
     PhInitializeProviderThread(&PhSecondaryProviderThread, PhCsUpdateInterval);
     PhInitializeProviderThread(&PhTertiaryProviderThread, PhCsUpdateInterval);
 
-    if (PhGetIntegerSetting(SETTING_ENABLE_HIGH_RESOLUTION_PROVIDER_TIMER))
+    if (PhGetIntegerSetting(SETTING_ENABLE_HIGH_RESOLUTION))
     {
         PhSetHighResolutionProvider(&PhPrimaryProviderThread, TRUE);
         PhSetHighResolutionProvider(&PhSecondaryProviderThread, TRUE);
