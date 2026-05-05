@@ -31,11 +31,12 @@ typedef struct _PH_EXTLV_CONTEXT
     // Sorting
 
     BOOLEAN TriState;
+    BOOLEAN SortFast;
+
     LONG SortColumn;
     LONG DefaultSortColumn;
     PH_SORT_ORDER SortOrder;
     PH_SORT_ORDER DefaultSortOrder;
-    BOOLEAN SortFast;
 
     _Function_class_(PH_COMPARE_FUNCTION)
     PPH_COMPARE_FUNCTION TriStateCompareFunction;
@@ -746,7 +747,7 @@ LRESULT CALLBACK PhpExtendedListViewWndProc(
                     {
                         lvColumn.cx = PhMultiplyDivideSigned(lvColumn.cx, listviewDpi, context->WindowDpi);
 
-                        CallWindowProc(oldWndProc, WindowHandle, LVM_SETCOLUMN, i, (WPARAM)&lvColumn);
+                        CallWindowProc(oldWndProc, WindowHandle, LVM_SETCOLUMN, i, (LPARAM)&lvColumn);
                     }
                     else
                     {
