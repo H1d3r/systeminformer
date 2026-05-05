@@ -3486,7 +3486,7 @@ NTSTATUS PhEnumWindowStations(
         EnumWindowStations(PhEnumWindowStationsWin32Callback, (LPARAM)&context);
     }
 
-    if (!context.StopSearch)
+    if (context.StopSearch)
         goto CleanupExit;
 
     //
@@ -3513,7 +3513,7 @@ NTSTATUS PhEnumWindowStations(
         }
     }
 
-    if (!context.StopSearch)
+    if (context.StopSearch)
         goto CleanupExit;
 
     //
@@ -3554,7 +3554,7 @@ NTSTATUS PhEnumWindowStations(
         }
     }
 
-    if (!context.StopSearch)
+    if (context.StopSearch)
         goto CleanupExit;
 
     //
