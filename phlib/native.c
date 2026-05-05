@@ -8421,6 +8421,7 @@ NTSTATUS PhSetWaitableTimer(
     _In_opt_ PLARGE_INTEGER Period,
     _In_opt_ PTIMER_APC_ROUTINE TimerApcRoutine,
     _In_opt_ PVOID TimerContext,
+    _In_ BOOLEAN ResumeTimer
     )
 {
     if (PhEnableHighResolution)
