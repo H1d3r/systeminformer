@@ -43,6 +43,9 @@ VOID UpdateContextDeleteProcedure(
         PhDereferenceObject(context->SetupFilePath);
     }
 
+    if (context->SetupFileHandle)
+        NtClose(context->SetupFileHandle);
+
     if (context->Version)
         PhDereferenceObject(context->Version);
     if (context->RelDate)
@@ -74,6 +77,7 @@ PPH_UPDATER_CONTEXT CreateUpdateContext(
     context = PhCreateObjectZero(sizeof(PH_UPDATER_CONTEXT), UpdateContextType);
     context->StartupCheck = StartupCheck;
     context->Cleanup = TRUE;
+    context->WindowDpi = USER_DEFAULT_SCREEN_DPI;
     context->PortableMode = !!SystemInformer_IsPortableMode();
     context->Channel = PhGetBuildReleaseChannel();
 
@@ -589,7 +593,8 @@ ULONG64 ParseVersionString(
 
 BOOLEAN QueryUpdateData(
     _Inout_ PPH_UPDATER_CONTEXT Context,
-    _In_ PCWSTR ServerName
+    _In_ PCWSTR ServerName,
+    _In_ USHORT Port
     )
 {
     NTSTATUS status;
@@ -608,7 +613,7 @@ BOOLEAN QueryUpdateData(
     if (!NT_SUCCESS(status))
         goto CleanupExit;
 
-    status = PhHttpConnect(httpContext, ServerName, PH_HTTP_DEFAULT_HTTPS_PORT);
+    status = PhHttpConnect(httpContext, ServerName, Port);
 
     if (!NT_SUCCESS(status))
         goto CleanupExit;
@@ -754,13 +759,21 @@ BOOLEAN QueryUpdateDataWithFailover(
     {
         L"system-informer.com",
         L"systeminformer.com",
+        L"systeminformer.io",
         L"systeminformer.sourceforge.io",
+    };
+    static CONST USHORT Ports[] =
+    {
+        443, 8443
     };
 
     for (ULONG i = 0; i < ARRAYSIZE(Servers); i++)
     {
-        if (QueryUpdateData(Context, Servers[i]))
-            return TRUE;
+        for (ULONG j = 0; j < ARRAYSIZE(Ports); j++)
+        {
+            if (QueryUpdateData(Context, Servers[i], Ports[j]))
+                return TRUE;
+        }
     }
 
     return FALSE;
@@ -782,7 +795,7 @@ NTSTATUS UpdateCheckSilentThread(
 
     //PhDelayExecution(5 * 1000);
 
-    PhClearCacheDirectory(context->PortableMode);
+    PhClearCacheDirectory(!!context->PortableMode);
 
     // Query latest update information from the server.
     if (!QueryUpdateDataWithFailover(context))
@@ -901,7 +914,7 @@ PPH_STRING UpdateParseDownloadFileName(
         return NULL;
 
     downloadFileName = PhCreateString2(&namePart);
-    localFileName = PhCreateCacheFile(Context->PortableMode, downloadFileName, FALSE);
+    localFileName = PhCreateCacheFile(!!Context->PortableMode, downloadFileName, FALSE);
     PhDereferenceObject(downloadFileName);
 
     return localFileName;
@@ -943,7 +956,7 @@ NTSTATUS UpdateDownloadThread(
 
     SendMessage(context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_MAIN_INSTRUCTION, (LPARAM)L"Connecting...");
 
-    if (!NT_SUCCESS(status = PhHttpInitialize(&httpContext)))
+    if (!NT_SUCCESS(status = PhHttpInitialize(&httpContext, NULL)))
         goto CleanupExit;
 
     PhHttpSetProtocol(httpContext, TRUE, PH_HTTP_PROTOCOL_FLAG_HTTP2, 5000);
@@ -1168,8 +1181,8 @@ CleanupExit:
 }
 
 LRESULT CALLBACK TaskDialogSubclassProc(
-    _In_ HWND hwndDlg,
-    _In_ UINT uMsg,
+    _In_ HWND WindowHandle,
+    _In_ UINT WindowMessage,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam
     )
@@ -1177,31 +1190,31 @@ LRESULT CALLBACK TaskDialogSubclassProc(
     PPH_UPDATER_CONTEXT context;
     WNDPROC oldWndProc;
 
-    if (!(context = PhGetWindowContext(hwndDlg, UCHAR_MAX)))
+    if (!(context = PhGetWindowContext(WindowHandle, UCHAR_MAX)))
         return 0;
 
     oldWndProc = context->DefaultWindowProc;
 
-    switch (uMsg)
+    switch (WindowMessage)
     {
     case WM_DESTROY:
         {
             context->Cancel = TRUE;
 
-            PhSetWindowProcedure(hwndDlg, oldWndProc);
-            PhRemoveWindowContext(hwndDlg, UCHAR_MAX);
+            PhSetWindowProcedure(WindowHandle, oldWndProc);
+            PhRemoveWindowContext(WindowHandle, UCHAR_MAX);
 
-            PhUnregisterWindowCallback(hwndDlg);
+            PhUnregisterWindowCallback(WindowHandle);
         }
         break;
     case PH_SHOWDIALOG:
         {
-            if (IsMinimized(hwndDlg))
-                ShowWindow(hwndDlg, SW_RESTORE);
+            if (IsMinimized(WindowHandle))
+                ShowWindow(WindowHandle, SW_RESTORE);
             else
-                ShowWindow(hwndDlg, SW_SHOW);
+                ShowWindow(WindowHandle, SW_SHOW);
 
-            SetForegroundWindow(hwndDlg);
+            SetForegroundWindow(WindowHandle);
         }
         break;
     case PH_SHOWLATEST:
@@ -1235,7 +1248,7 @@ LRESULT CALLBACK TaskDialogSubclassProc(
             {
                 if (context->ProgressDownloaded && context->ProgressTotal)
                 {
-                    LONG64 percent = context->ProgressDownloaded * 100 / context->ProgressTotal;
+                    LONG64 percent = PhMultiplyDivide((ULONG)context->ProgressDownloaded, 100, (ULONG)context->ProgressTotal);
                     PH_FORMAT format[9];
                     WCHAR string[MAX_PATH];
 
@@ -1271,7 +1284,7 @@ LRESULT CALLBACK TaskDialogSubclassProc(
         {
             LONG windowDpi = HIWORD(wParam);
 
-            PhSetApplicationWindowIconEx(hwndDlg, windowDpi);
+            PhSetApplicationWindowIconEx(WindowHandle, windowDpi);
         }
         break;
     //case WM_PARENTNOTIFY:
@@ -1316,12 +1329,12 @@ LRESULT CALLBACK TaskDialogSubclassProc(
     //    break;
     }
 
-    return CallWindowProc(oldWndProc, hwndDlg, uMsg, wParam, lParam);
+    return CallWindowProc(oldWndProc, WindowHandle, WindowMessage, wParam, lParam);
 }
 
 HRESULT CALLBACK TaskDialogBootstrapCallback(
-    _In_ HWND hwndDlg,
-    _In_ UINT uMsg,
+    _In_ HWND WindowHandle,
+    _In_ UINT WindowMessage,
     _In_ WPARAM wParam,
     _In_ LPARAM lParam,
     _In_ LONG_PTR dwRefData
@@ -1329,24 +1342,21 @@ HRESULT CALLBACK TaskDialogBootstrapCallback(
 {
     PPH_UPDATER_CONTEXT context = (PPH_UPDATER_CONTEXT)dwRefData;
 
-    switch (uMsg)
+    switch (WindowMessage)
     {
     case TDN_DIALOG_CONSTRUCTED:
         {
-            UpdateDialogHandle = context->DialogHandle = hwndDlg;
+            UpdateDialogHandle = context->DialogHandle = WindowHandle;
 
             // Center the update window on PH if it's visible else we center on the desktop.
-            PhCenterWindow(hwndDlg, SystemInformer_GetWindowHandle());
+            PhCenterWindow(WindowHandle, SystemInformer_GetWindowHandle());
 
-            // Create the Taskdialog icons.
-            PhSetApplicationWindowIconEx(hwndDlg, PhGetWindowDpi(hwndDlg));
-
-            PhRegisterWindowCallback(hwndDlg, PH_PLUGIN_WINDOW_EVENT_TYPE_TOPMOST, NULL);
+            PhRegisterWindowCallback(WindowHandle, PH_PLUGIN_WINDOW_EVENT_TYPE_TOPMOST, NULL);
 
             // Subclass the Taskdialog.
-            context->DefaultWindowProc = PhGetWindowProcedure(hwndDlg);
-            PhSetWindowContext(hwndDlg, UCHAR_MAX, context);
-            PhSetWindowProcedure(hwndDlg, TaskDialogSubclassProc);
+            context->DefaultWindowProc = PhGetWindowProcedure(WindowHandle);
+            PhSetWindowContext(WindowHandle, UCHAR_MAX, context);
+            PhSetWindowProcedure(WindowHandle, TaskDialogSubclassProc);
 
             if (context->StartupCheck)
             {
