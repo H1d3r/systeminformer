@@ -92,6 +92,8 @@ typedef struct _PH_SETUP_CONTEXT
     ULONG CurrentRevisionVersion;
 
     HANDLE SubProcessHandle;
+
+    PPH_STRING SessionId;
 } PH_SETUP_CONTEXT, *PPH_SETUP_CONTEXT;
 
 VOID SetupParseCommandLine(
