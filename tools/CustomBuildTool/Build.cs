@@ -1365,7 +1365,7 @@ namespace CustomBuildTool
             if (Flags.HasFlag(BuildFlags.BuildMsix))
                 preprocessorOptionsList.Add("PH_BUILD_MSIX");
             if (!string.IsNullOrWhiteSpace(Channel))
-                preprocessorOptionsList.Add($"PH_RELEASE_CHANNEL_ID=\"{BuildConfig.Build_Channels[Channel]}\"");
+                preprocessorOptionsList.Add($"PH_RELEASE_CHANNEL_ID={BuildConfig.Build_Channels[Channel]}");
             if (!string.IsNullOrWhiteSpace(Build.BuildCommitHash))
                 preprocessorOptionsList.Add($"PHAPP_VERSION_COMMITHASH=\"{Build.BuildHash()}\"");
             if (!string.IsNullOrWhiteSpace(Build.BuildVersionMajor))

@@ -71,7 +71,7 @@ typedef struct _PH_SETUP_CONTEXT
         ULONG Flags;
         struct
         {
-            ULONG SetupRemoveAppData: 1;
+            ULONG SetupRemoveAppData : 1;
             ULONG SetupIsLegacyUpdate : 1;
             ULONG Silent : 1;
             ULONG NoStart : 1;
