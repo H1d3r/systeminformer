@@ -77,7 +77,8 @@ typedef struct _PH_SETUP_CONTEXT
             ULONG NoStart : 1;
             ULONG Hide : 1;
             ULONG NeedsReboot : 1;
-            ULONG Spare : 26;
+            ULONG SetupProgressActive : 1;
+            ULONG Spare : 25;
         };
     };
 
@@ -97,6 +98,18 @@ typedef struct _PH_SETUP_CONTEXT
 } PH_SETUP_CONTEXT, *PPH_SETUP_CONTEXT;
 
 VOID SetupParseCommandLine(
+    _In_ PPH_SETUP_CONTEXT Context
+    );
+
+VOID SetupApplyDarkModeToPage(
+    _In_ HWND WindowHandle
+    );
+
+LRESULT SetupHandleControlCustomDraw(
+    _In_ PVOID CustomDraw
+    );
+
+VOID SetupShowWizard(
     _In_ PPH_SETUP_CONTEXT Context
     );
 
@@ -330,6 +343,22 @@ BOOLEAN UpdateDownloadUpdateData(
     );
 
 // extract.c
+
+VOID SetupSetProgressMarquee(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_ BOOLEAN Enable
+    );
+
+VOID SetupSetProgressText(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_opt_ PCWSTR MainInstruction,
+    _In_opt_ PCWSTR Content
+    );
+
+VOID SetupSetProgressValue(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_ ULONG Value
+    );
 
 _Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS CALLBACK SetupExtractBuild(

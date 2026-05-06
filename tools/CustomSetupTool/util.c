@@ -1980,7 +1980,7 @@ NTSTATUS SetupWriteFileAtomic(
     if (!(sessionId = SetupGetSessionId(Context)))
         return STATUS_NO_MEMORY;
 
-    stagingName = PhaFormatString(L"%s.%s.new", PhGetString(FinalName), PhGetString(sessionId));
+    stagingName = PhFormatString(L"%s.%s.new", PhGetString(FinalName), PhGetString(sessionId));
     allocationSize.QuadPart = BufferLength;
 
     status = PhCreateFileWin32Ex(
@@ -2021,7 +2021,14 @@ NTSTATUS SetupWriteFileAtomic(
 CleanupExit:
 
     if (fileHandle)
+    {
         NtClose(fileHandle);
+    }
+
+    if (stagingName)
+    {
+        PhDereferenceObject(stagingName);
+    }
 
     return status;
 }

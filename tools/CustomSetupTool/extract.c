@@ -12,6 +12,76 @@
 #include "setup.h"
 #include "..\thirdparty\miniz\miniz.h"
 
+VOID SetupSetProgressMarquee(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_ BOOLEAN Enable
+    )
+{
+    HWND progressHandle;
+
+    if (!Context->DialogHandle)
+        return;
+
+    if (progressHandle = GetDlgItem(Context->DialogHandle, IDC_PROGRESS))
+    {
+        SendMessage(progressHandle, PBM_SETMARQUEE, Enable, 0);
+    }
+    else
+    {
+        SendMessage(Context->DialogHandle, TDM_SET_MARQUEE_PROGRESS_BAR, Enable, 0);
+
+        if (Enable)
+            SendMessage(Context->DialogHandle, TDM_SET_PROGRESS_BAR_MARQUEE, TRUE, 1);
+    }
+}
+
+VOID SetupSetProgressText(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_opt_ PCWSTR MainInstruction,
+    _In_opt_ PCWSTR Content
+    )
+{
+    HWND statusHandle;
+
+    if (!Context->DialogHandle)
+        return;
+
+    if (statusHandle = GetDlgItem(Context->DialogHandle, IDC_STATUS))
+    {
+        if (MainInstruction)
+            SetWindowText(statusHandle, MainInstruction);
+    }
+    else
+    {
+        if (MainInstruction)
+            SendMessage(Context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_MAIN_INSTRUCTION, (LPARAM)MainInstruction);
+        if (Content)
+            SendMessage(Context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_CONTENT, (LPARAM)Content);
+    }
+}
+
+VOID SetupSetProgressValue(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_ ULONG Value
+    )
+{
+    HWND progressHandle;
+
+    if (!Context->DialogHandle)
+        return;
+
+    if (progressHandle = GetDlgItem(Context->DialogHandle, IDC_PROGRESS))
+    {
+        SendMessage(progressHandle, PBM_SETMARQUEE, FALSE, 0);
+        SendMessage(progressHandle, PBM_SETPOS, Value, 0);
+    }
+    else
+    {
+        SendMessage(Context->DialogHandle, TDM_SET_MARQUEE_PROGRESS_BAR, FALSE, 0);
+        SendMessage(Context->DialogHandle, TDM_SET_PROGRESS_BAR_POS, (WPARAM)Value, 0);
+    }
+}
+
 /**
  * Checks if the existing KSystem Informer driver file matches the specified buffer.
  *
@@ -280,10 +350,11 @@ static NTSTATUS SetupExtractBuildStageFiles(
     for (mz_uint i = 0; i < mz_zip_reader_get_num_files(ZipFileArchive); i++)
     {
         PVOID buffer = NULL;
-        size_t zipFileBufferLength = 0;
+        SIZE_T zipFileBufferLength = 0;
         PPH_STRING fileName = NULL;
         mz_ulong zipFileCrc32 = 0;
         mz_zip_archive_file_stat zipFileStat;
+        PPH_STRING altPathName;
 
         if (!mz_zip_reader_file_stat(ZipFileArchive, i, &zipFileStat))
             continue;
@@ -353,14 +424,26 @@ static NTSTATUS SetupExtractBuildStageFiles(
             goto CleanupExit;
         }
 
-        PhClearReference(&extractPath);
-        extractPath = PhConcatStringRef3(
-            &Context->SetupInstallPath->sr,
-            &PhNtPathSeparatorString,
-            &fileName->sr
-            );
-        
-        PhDereferenceObject(fileName);
+        {
+            if (altPathName = PhConvertAltSeperatorToNtPathSeperator(fileName))
+            {
+                PhSwapReference(&fileName, altPathName);
+            }
+
+            PhClearReference(&extractPath);
+            extractPath = SetupCreateFullPath(Context->SetupInstallPath, PhGetString(fileName));
+
+            if (PhIsNullOrEmptyString(extractPath))
+            {
+                extractPath = PhConcatStringRef3(
+                    &Context->SetupInstallPath->sr,
+                    &PhNtPathSeparatorString,
+                    &fileName->sr
+                    );
+            }
+
+            PhDereferenceObject(fileName);
+        }
 
         if (!NT_SUCCESS(status = PhCreateDirectoryFullPathWin32(&extractPath->sr)))
         {
@@ -374,11 +457,11 @@ static NTSTATUS SetupExtractBuildStageFiles(
 
             do
             {
-                if (NT_SUCCESS(status = SetupUseExistingKsi(extractPath, buffer, (ULONG)zipFileBufferLength)))
+                if (NT_SUCCESS(status = SetupUseExistingKsi(extractPath, buffer, zipFileBufferLength)))
                     break;
-                if (NT_SUCCESS(status = SetupOverwriteFile(extractPath, buffer, (ULONG)zipFileBufferLength)))
+                if (NT_SUCCESS(status = SetupOverwriteFile(extractPath, buffer, zipFileBufferLength)))
                     break;
-                if (NT_SUCCESS(status = SetupUpdateKsi(Context, extractPath, buffer, (ULONG)zipFileBufferLength)))
+                if (NT_SUCCESS(status = SetupUpdateKsi(Context, extractPath, buffer, zipFileBufferLength)))
                     break;
 
                 PhDelayExecution(1000);
@@ -386,7 +469,7 @@ static NTSTATUS SetupExtractBuildStageFiles(
         }
         else
         {
-            if (NT_SUCCESS(status = SetupWriteFileAtomic(Context, extractPath, buffer, (ULONG)zipFileBufferLength)))
+            if (NT_SUCCESS(status = SetupWriteFileAtomic(Context, extractPath, buffer, zipFileBufferLength)))
             {
                 PhAddItemList(StagedFiles, PhReferenceObject(extractPath));
             }
@@ -410,7 +493,7 @@ static NTSTATUS SetupExtractBuildStageFiles(
 
             if (PhFormatToBuffer(format, 2, string, sizeof(string), NULL))
             {
-                SendMessage(Context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_MAIN_INSTRUCTION, (LPARAM)string);
+                SetupSetProgressText(Context, string, NULL);
             }
 
             PhInitFormatS(&format[0], L"Progress: ");
@@ -423,10 +506,10 @@ static NTSTATUS SetupExtractBuildStageFiles(
 
             if (PhFormatToBuffer(format, ARRAYSIZE(format), string, sizeof(string), NULL))
             {
-                SendMessage(Context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_CONTENT, (LPARAM)string);
+                SetupSetProgressText(Context, NULL, string);
             }
 
-            SendMessage(Context->DialogHandle, TDM_SET_PROGRESS_BAR_POS, (WPARAM)(INT)percent, 0);
+            SetupSetProgressValue(Context, (ULONG)percent);
 
             if (baseName)
                 PhDereferenceObject(baseName);
@@ -474,10 +557,10 @@ static NTSTATUS SetupExtractBuildCommitFiles(
 
         if (PhFormatToBuffer(format, 2, string, sizeof(string), NULL))
         {
-            SendMessage(Context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_MAIN_INSTRUCTION, (LPARAM)string);
+            SetupSetProgressText(Context, string, NULL);
         }
 
-        SendMessage(Context->DialogHandle, TDM_SET_PROGRESS_BAR_POS, (WPARAM)(INT)percent, 0);
+        SetupSetProgressValue(Context, (ULONG)percent);
 
         if (baseName)
             PhDereferenceObject(baseName);
@@ -533,7 +616,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
         goto CleanupExit;
     }
 
-    SendMessage(Context->DialogHandle, TDM_SET_MARQUEE_PROGRESS_BAR, FALSE, 0);
+    SetupSetProgressMarquee(Context, FALSE);
 
     if (!NT_SUCCESS(status = SetupExtractBuildStageFiles(
         Context,

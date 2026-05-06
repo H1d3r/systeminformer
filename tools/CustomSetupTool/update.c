@@ -25,9 +25,14 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     PPH_SETUP_CONTEXT context = (PPH_SETUP_CONTEXT)Context;
     NTSTATUS status;
 
+    context->SetupProgressActive = TRUE;
+
     //
     // Create the folder.
     //
+
+    SetupSetProgressMarquee(context, TRUE);
+    SetupSetProgressText(context, L"Preparing the update directory...", NULL);
 
     if (!NT_SUCCESS(status = PhCreateDirectoryWin32(&context->SetupInstallPath->sr)))
     {
@@ -39,6 +44,8 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Stop the application.
     //
 
+    SetupSetProgressText(context, L"Stopping System Informer...", NULL);
+
     if (!NT_SUCCESS(status = SetupShutdownApplication(context)))
     {
         context->LastStatus = status;
@@ -48,6 +55,8 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     //
     // Stop the kernel driver.
     //
+
+    SetupSetProgressText(context, L"Stopping the kernel driver...", NULL);
 
     if (!NT_SUCCESS(status = SetupUninstallDriver(context)))
     {
@@ -59,6 +68,8 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Create the uninstaller.
     //
 
+    SetupSetProgressText(context, L"Updating the uninstaller...", NULL);
+
     if (!NT_SUCCESS(status = SetupCreateUninstallFile(context)))
     {
         context->LastStatus = status;
@@ -69,32 +80,54 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Extract the updated files.
     //
 
+    SetupSetProgressText(context, L"Extracting updated files...", NULL);
+
     if (!NT_SUCCESS(status = SetupExtractBuild(context)))
     {
         context->LastStatus = status;
         goto CleanupExit;
     }
 
+    //
     // Upgrade the settings file.
+    //
+    SetupSetProgressText(context, L"Updating settings...", NULL);
     SetupUpgradeSettingsFile();
 
+    //
     // Convert the settings file.
+    //
+    SetupSetProgressText(context, L"Converting settings...", NULL);
     SetupConvertSettingsFile();
 
+    //
     // Create the ARP uninstall config.
+    //
+    SetupSetProgressText(context, L"Updating uninstall registration...", NULL);
     SetupCreateUninstallKey(Context);
 
+    //
     // Create Windows Error Reporting config.
+    //
+    SetupSetProgressText(context, L"Updating LocalDumps configuration...", NULL);
     SetupCreateLocalDumpsKey();
 
+    //
     // Create the application path config.
+    //
+    SetupSetProgressText(context, L"Updating Windows integration...", NULL);
     SetupCreateWindowsOptions(Context);
 
+    SetupSetProgressText(context, L"Update complete.", NULL);
+    SetupSetProgressValue(context, 100);
+    context->SetupProgressActive = FALSE;
     PostMessage(context->DialogHandle, SETUP_SHOWUPDATEFINAL, 0, 0);
     return STATUS_SUCCESS;
 
 CleanupExit:
 
+    SetupSetProgressText(context, L"Update failed.", NULL);
+    context->SetupProgressActive = FALSE;
     PostMessage(context->DialogHandle, SETUP_SHOWUPDATEERROR, 0, 0);
     return STATUS_UNSUCCESSFUL;
 }
@@ -123,8 +156,8 @@ HRESULT CALLBACK SetupUpdatingTaskDialogCallbackProc(
     {
     case TDN_NAVIGATED:
         {
-            SendMessage(hwndDlg, TDM_SET_MARQUEE_PROGRESS_BAR, TRUE, 0);
-            SendMessage(hwndDlg, TDM_SET_PROGRESS_BAR_MARQUEE, TRUE, 1);
+            SetupApplyDarkModeToPage(hwndDlg);
+            SetupSetProgressMarquee(context, TRUE);
 
             PhCreateThread2(SetupUpdateBuild, context);
         }
@@ -191,6 +224,9 @@ HRESULT CALLBACK SetupErrorTaskDialogCallbackProc(
 
     switch (uMsg)
     {
+    case TDN_NAVIGATED:
+        SetupApplyDarkModeToPage(hwndDlg);
+        break;
     case TDN_BUTTON_CLICKED:
         {
             if ((INT)wParam == IDYES)
