@@ -11,20 +11,27 @@
 
 #include "setup.h"
 
+/**
+ * Updates an existing System Informer installation.
+ *
+ * \param Context The setup context.
+ * \return Successful or errant status.
+ */
 _Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS CALLBACK SetupUpdateBuild(
-    _In_ PPH_SETUP_CONTEXT Context
+    _In_ PVOID Context
     )
 {
+    PPH_SETUP_CONTEXT context = (PPH_SETUP_CONTEXT)Context;
     NTSTATUS status;
 
     //
     // Create the folder.
     //
 
-    if (!NT_SUCCESS(status = PhCreateDirectoryWin32(&Context->SetupInstallPath->sr)))
+    if (!NT_SUCCESS(status = PhCreateDirectoryWin32(&context->SetupInstallPath->sr)))
     {
-        Context->LastStatus = status;
+        context->LastStatus = status;
         goto CleanupExit;
     }
 
@@ -32,9 +39,9 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Stop the application.
     //
 
-    if (!NT_SUCCESS(status = SetupShutdownApplication(Context)))
+    if (!NT_SUCCESS(status = SetupShutdownApplication(context)))
     {
-        Context->LastStatus = status;
+        context->LastStatus = status;
         goto CleanupExit;
     }
 
@@ -42,9 +49,9 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Stop the kernel driver.
     //
 
-    if (!NT_SUCCESS(status = SetupUninstallDriver(Context)))
+    if (!NT_SUCCESS(status = SetupUninstallDriver(context)))
     {
-        Context->LastStatus = status;
+        context->LastStatus = status;
         goto CleanupExit;
     }
 
@@ -52,9 +59,9 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Create the uninstaller.
     //
 
-    if (!NT_SUCCESS(status = SetupCreateUninstallFile(Context)))
+    if (!NT_SUCCESS(status = SetupCreateUninstallFile(context)))
     {
-        Context->LastStatus = status;
+        context->LastStatus = status;
         goto CleanupExit;
     }
 
@@ -62,9 +69,9 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Extract the updated files.
     //
 
-    if (!NT_SUCCESS(status = SetupExtractBuild(Context)))
+    if (!NT_SUCCESS(status = SetupExtractBuild(context)))
     {
-        Context->LastStatus = status;
+        context->LastStatus = status;
         goto CleanupExit;
     }
 
@@ -83,15 +90,25 @@ NTSTATUS CALLBACK SetupUpdateBuild(
     // Create the application path config.
     SetupCreateWindowsOptions(Context);
 
-    PostMessage(Context->DialogHandle, SETUP_SHOWUPDATEFINAL, 0, 0);
+    PostMessage(context->DialogHandle, SETUP_SHOWUPDATEFINAL, 0, 0);
     return STATUS_SUCCESS;
 
 CleanupExit:
 
-    PostMessage(Context->DialogHandle, SETUP_SHOWUPDATEERROR, 0, 0);
+    PostMessage(context->DialogHandle, SETUP_SHOWUPDATEERROR, 0, 0);
     return STATUS_UNSUCCESSFUL;
 }
 
+/**
+ * Callback for the update progress task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK SetupUpdatingTaskDialogCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -117,6 +134,16 @@ HRESULT CALLBACK SetupUpdatingTaskDialogCallbackProc(
     return S_OK;
 }
 
+/**
+ * Callback for the update completed task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK SetupCompletedTaskDialogCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -142,6 +169,16 @@ HRESULT CALLBACK SetupCompletedTaskDialogCallbackProc(
     return S_OK;
 }
 
+/**
+ * Callback for the update error task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK SetupErrorTaskDialogCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -168,6 +205,11 @@ HRESULT CALLBACK SetupErrorTaskDialogCallbackProc(
     return S_OK;
 }
 
+/**
+ * Shows the update progress page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUpdatePageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -196,6 +238,11 @@ VOID ShowUpdatePageDialog(
     PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
+/**
+ * Shows the update completed page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUpdateCompletedPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -218,6 +265,11 @@ VOID ShowUpdateCompletedPageDialog(
     PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
+/**
+ * Shows the update error page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUpdateErrorPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )

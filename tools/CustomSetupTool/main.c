@@ -19,6 +19,15 @@
 #define SETUP_CMD_NOSTART    6
 #define SETUP_CMD_HIDE       7
 
+/**
+ * Subclass procedure for the setup task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The window message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \return The message result.
+ */
 LRESULT CALLBACK SetupTaskDialogSubclassProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -97,6 +106,16 @@ LRESULT CALLBACK SetupTaskDialogSubclassProc(
     return CallWindowProc(oldWndProc, hwndDlg, uMsg, wParam, lParam);
 }
 
+/**
+ * Callback for initializing the setup task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -158,6 +177,11 @@ HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
     return S_OK;
 }
 
+/**
+ * Shows the legacy Process Hacker version prompt.
+ *
+ * \return The task dialog result.
+ */
 LONG SetupShowMessagePromptForLegacyVersion(
     VOID
     )
@@ -202,6 +226,11 @@ LONG SetupShowMessagePromptForLegacyVersion(
     }
 }
 
+/**
+ * Shows the task dialog setup UI.
+ *
+ * \param Context The setup context.
+ */
 VOID SetupShowDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -237,6 +266,11 @@ VOID SetupShowDialog(
     PhDeleteAutoPool(&autoPool);
 }
 
+/**
+ * Runs setup in silent mode.
+ *
+ * \param Context The setup context.
+ */
 VOID SetupSilent(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -309,6 +343,14 @@ VOID SetupSilent(
     Context->LastStatus = status;
 }
 
+/**
+ * Parses the encoded KSystem Informer settings blob.
+ *
+ * \param KsiSettingsBlob The encoded settings blob.
+ * \param Directory Receives the installation directory.
+ * \param ServiceName Receives the service name.
+ * \return TRUE if the settings blob was parsed, otherwise FALSE.
+ */
 _Success_(return)
 BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     _In_ PPH_STRING KsiSettingsBlob,
@@ -367,6 +409,14 @@ BOOLEAN PhParseKsiSettingsBlob( // copied from ksisup.c (dmex)
     return FALSE;
 }
 
+/**
+ * Callback for parsing setup command line options.
+ *
+ * \param Option The command line option.
+ * \param Value The command line option value.
+ * \param Context The setup context.
+ * \return TRUE to continue parsing, FALSE to stop.
+ */
 _Function_class_(PH_COMMAND_LINE_CALLBACK)
 BOOLEAN NTAPI MainPropSheetCommandLineCallback(
     _In_opt_ PCPH_COMMAND_LINE_OPTION Option,
@@ -399,6 +449,9 @@ BOOLEAN NTAPI MainPropSheetCommandLineCallback(
         case SETUP_CMD_HIDE:
             context->Hide = TRUE;
             break;
+        case SETUP_CMD_UICANARY:
+            context->UiCanary = TRUE;
+            break;
         }
 
         if (Option->Id == SETUP_CMD_UPDATE && Value)
@@ -430,6 +483,11 @@ BOOLEAN NTAPI MainPropSheetCommandLineCallback(
     return TRUE;
 }
 
+/**
+ * Parses the setup command line.
+ *
+ * \param Context The setup context.
+ */
 VOID SetupParseCommandLine(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -463,6 +521,7 @@ VOID SetupParseCommandLine(
         // tray and does not show the main window.
         //
         { SETUP_CMD_HIDE,       L"hide",       NoArgumentType },
+        { SETUP_CMD_UICANARY,   L"uicanary",   NoArgumentType },
     };
     PH_STRINGREF commandLine;
 
@@ -479,6 +538,9 @@ VOID SetupParseCommandLine(
     }
 }
 
+/**
+ * Initializes the setup mutant.
+ */
 VOID SetupInitializeMutant(
     VOID
     )
@@ -513,6 +575,15 @@ VOID SetupInitializeMutant(
     PhDereferenceObject(objectName);
 }
 
+/**
+ * Setup entry point.
+ *
+ * \param Instance The application instance handle.
+ * \param PrevInstance The previous application instance handle.
+ * \param CmdLine The command line.
+ * \param CmdShow The window show command.
+ * \return The process exit code.
+ */
 INT WINAPI wWinMain(
     _In_ HINSTANCE Instance,
     _In_opt_ HINSTANCE PrevInstance,

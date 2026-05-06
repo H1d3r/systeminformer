@@ -193,6 +193,9 @@ VOID SetupDeleteAppdataDirectory(
     }
 }
 
+/**
+ * Deletes the System Informer Image File Execution Options key.
+ */
 VOID SetupDeleteSystemInformerIfeo(
     VOID
     )
@@ -212,7 +215,14 @@ VOID SetupDeleteSystemInformerIfeo(
     }
 }
 
-// Callback for enumerating and deleting AppCompatFlags Layers entries
+/**
+ * Callback for enumerating and deleting AppCompatFlags Layers entries.
+ *
+ * \param RootDirectory The root directory handle.
+ * \param Information The key value full information.
+ * \param Context Optional context.
+ * \return TRUE to continue enumeration, FALSE to stop.
+ */
 _Function_class_(PH_ENUM_KEY_CALLBACK)
 BOOLEAN NTAPI SetupDeleteAppCompatFlagsLayersCallback(
     _In_ HANDLE RootDirectory,
@@ -241,7 +251,9 @@ BOOLEAN NTAPI SetupDeleteAppCompatFlagsLayersCallback(
     return TRUE;
 }
 
-// Function to delete AppCompatFlags Layers entries
+/**
+ * Deletes System Informer AppCompatFlags Layers entries.
+ */
 VOID SetupDeleteAppCompatFlagsLayersEntry(
     VOID
     )
@@ -640,6 +652,11 @@ VOID SetupDeleteWindowsOptions(
     }
 }
 
+/**
+ * Checks if the Task Manager Image File Execution Options key has a debugger value.
+ *
+ * \return TRUE if a debugger value exists, otherwise FALSE.
+ */
 BOOLEAN SetupHasTaskMgrDebuggerIfeo(
     VOID
     )
@@ -669,6 +686,12 @@ BOOLEAN SetupHasTaskMgrDebuggerIfeo(
     return hasDebugger;
 }
 
+/**
+ * Creates the Task Manager Image File Execution Options debugger value.
+ *
+ * \param Context The setup context.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupCreateTaskMgrDebuggerIfeo(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -1512,7 +1535,17 @@ NTSTATUS SetupLegacySetupInstalled(
             goto CleanupExit;
     }
 
-    keyName = PhConcatStrings(7, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\", PhGetString(processString), L"_", PhGetString(hackerString), L"2", L"_", L"is1");
+    keyName = PhConcatStrings(
+        7,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\",
+        PhGetString(processString),
+        L"_",
+        PhGetString(hackerString),
+        L"2",
+        L"_",
+        L"is1"
+        );
+
     if (!keyName)
         goto CleanupExit;
 
@@ -1898,6 +1931,12 @@ NTSTATUS SetupOverwriteFile(
      return status;
  }
  
+/**
+ * Gets the setup session identifier used for staged file names.
+ *
+ * \param Context The setup context.
+ * \return A string containing the setup session identifier.
+ */
 PPH_STRING SetupGetSessionId(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -1915,6 +1954,15 @@ PPH_STRING SetupGetSessionId(
     return Context->SessionId;
 }
 
+/**
+ * Writes a file to the setup staging path.
+ *
+ * \param Context The setup context.
+ * \param FinalName The final file name.
+ * \param Buffer The buffer containing the data to write.
+ * \param BufferLength The length of the buffer.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupWriteFileAtomic(
     _In_ PPH_SETUP_CONTEXT Context,
     _In_ PPH_STRING FinalName,
@@ -1978,6 +2026,13 @@ CleanupExit:
     return status;
 }
 
+/**
+ * Commits a staged setup file to the final file name.
+ *
+ * \param Context The setup context.
+ * \param FinalName The final file name.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupCommitFile(
     _In_ PPH_SETUP_CONTEXT Context,
     _In_ PPH_STRING FinalName
@@ -2014,7 +2069,7 @@ NTSTATUS SetupCommitFile(
 
         if (NT_SUCCESS(status))
         {
-            status = PhSetFileRename(fileHandle, NULL, TRUE, &FinalName->sr);
+            status = PhSetFileRename(targetHandle, NULL, TRUE, &backupName->sr);
             NtClose(targetHandle);
         }
 
@@ -2037,13 +2092,20 @@ NTSTATUS SetupCommitFile(
 
     if (NT_SUCCESS(status))
     {
-        status = PhSetFileRename(fileHandle, NULL, TRUE, &stagingName->sr);
+        status = PhSetFileRename(fileHandle, NULL, TRUE, &FinalName->sr);
         NtClose(fileHandle);
     }
 
     return status;
 }
 
+/**
+ * Rolls back a staged setup file update.
+ *
+ * \param Context The setup context.
+ * \param FinalName The final file name.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupRollbackFile(
     _In_ PPH_SETUP_CONTEXT Context,
     _In_ PPH_STRING FinalName
@@ -2087,6 +2149,13 @@ NTSTATUS SetupRollbackFile(
     return STATUS_SUCCESS;
 }
 
+/**
+ * Finalizes a committed setup file update.
+ *
+ * \param Context The setup context.
+ * \param FinalName The final file name.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupFinalizeFile(
     _In_ PPH_SETUP_CONTEXT Context,
     _In_ PPH_STRING FinalName
@@ -2109,6 +2178,13 @@ NTSTATUS SetupFinalizeFile(
     return STATUS_SUCCESS;
 }
 
+/**
+ * Computes the SHA-256 hash for a file.
+ *
+ * \param FileName The file name.
+ * \param Buffer The buffer that receives the SHA-256 hash.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupHashFile(
     _In_ PPH_STRING FileName,
     _Out_writes_all_(256 / 8) PBYTE Buffer

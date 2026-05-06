@@ -340,14 +340,14 @@ NTSTATUS CALLBACK SetupExtractBuild(
 
 _Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS CALLBACK SetupProgressThread(
-    _In_ PPH_SETUP_CONTEXT Context
+    _In_ PVOID Context
     );
 
 // update.c
 
 _Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS CALLBACK SetupUpdateBuild(
-    _In_ PPH_SETUP_CONTEXT Context
+    _In_ PVOID Context
     );
 
 // uninstall.c

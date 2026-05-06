@@ -12,6 +12,14 @@
 #include "setup.h"
 #include "..\thirdparty\miniz\miniz.h"
 
+/**
+ * Checks if the existing KSystem Informer driver file matches the specified buffer.
+ *
+ * \param FileName The file name.
+ * \param Buffer The buffer to compare.
+ * \param BufferLength The length of the buffer.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupUseExistingKsi(
     _In_ PPH_STRING FileName,
     _In_ PVOID Buffer,
@@ -86,6 +94,15 @@ CleanupExit:
     return status;
 }
 
+/**
+ * Updates the KSystem Informer driver file.
+ *
+ * \param Context The setup context.
+ * \param FileName The file name.
+ * \param Buffer The buffer containing the file data.
+ * \param BufferLength The length of the buffer.
+ * \return Successful or errant status.
+ */
 NTSTATUS SetupUpdateKsi(
     _In_ PPH_SETUP_CONTEXT Context,
     _In_ PPH_STRING FileName,
@@ -131,6 +148,11 @@ NTSTATUS SetupUpdateKsi(
     return status;
 }
 
+/**
+ * Gets the native processor architecture.
+ *
+ * \return The processor architecture.
+ */
 static USHORT SetupGetCurrentArchitecture(
     VOID
     )
@@ -161,46 +183,28 @@ static USHORT SetupGetCurrentArchitecture(
     return info.wProcessorArchitecture;
 }
 
-_Function_class_(USER_THREAD_START_ROUTINE)
-NTSTATUS CALLBACK SetupExtractBuild(
-    _In_ PPH_SETUP_CONTEXT Context
+/**
+ * Gets the total size of files that will be extracted from the build archive.
+ *
+ * \param ZipFileArchive The ZIP archive.
+ * \param NativeArchitecture The native processor architecture.
+ * \param TotalLength Receives the total uncompressed length.
+ * \return Successful or errant status.
+ */
+static NTSTATUS SetupExtractBuildGetTotalLength(
+    _Inout_ mz_zip_archive* ZipFileArchive,
+    _In_ USHORT NativeArchitecture,
+    _Out_ PULONG64 TotalLength
     )
 {
-    NTSTATUS status = STATUS_SUCCESS;
-    ULONG resourceLength;
-    PVOID resourceBuffer = NULL;
-    ULONG64 totalLength = 0;
-    ULONG64 currentLength = 0;
-    mz_zip_archive zipFileArchive = { 0 };
-    PPH_STRING extractPath = NULL;
-    USHORT nativeArchitecture;
-    PPH_LIST stagedFiles = NULL;
+    *TotalLength = 0;
 
-    status = PhLoadResource(
-        NtCurrentImageBase(),
-        MAKEINTRESOURCE(IDR_BIN_DATA),
-        RT_RCDATA,
-        &resourceLength,
-        &resourceBuffer
-        );
-
-    if (!NT_SUCCESS(status))
-        return status;
-
-    if (!mz_zip_reader_init_mem(&zipFileArchive, resourceBuffer, resourceLength, 0))
-    {
-        return STATUS_INVALID_BUFFER_SIZE;
-    }
-
-    nativeArchitecture = SetupGetCurrentArchitecture();
-    stagedFiles = PhCreateList(100);
-
-    for (mz_uint i = 0; i < mz_zip_reader_get_num_files(&zipFileArchive); i++)
+    for (mz_uint i = 0; i < mz_zip_reader_get_num_files(ZipFileArchive); i++)
     {
         mz_zip_archive_file_stat zipFileStat;
         PPH_STRING fileName;
 
-        if (!mz_zip_reader_file_stat(&zipFileArchive, i, &zipFileStat))
+        if (!mz_zip_reader_file_stat(ZipFileArchive, i, &zipFileStat))
             continue;
 
         fileName = PhConvertUtf8ToUtf16(zipFileStat.m_filename);
@@ -216,7 +220,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
             continue;
         }
 
-        if (nativeArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
+        if (NativeArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
         {
             if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
                 PhStartsWithString2(fileName, L"arm64\\", TRUE))
@@ -225,7 +229,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
                 continue;
             }
         }
-        else if (nativeArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
+        else if (NativeArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
         {
             if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
                 PhStartsWithString2(fileName, L"amd64\\", TRUE))
@@ -244,14 +248,36 @@ NTSTATUS CALLBACK SetupExtractBuild(
             }
         }
 
-        totalLength += zipFileStat.m_uncomp_size;
+        *TotalLength += zipFileStat.m_uncomp_size;
         PhDereferenceObject(fileName);
     }
 
-    SendMessage(Context->DialogHandle, TDM_SET_MARQUEE_PROGRESS_BAR, FALSE, 0);
+    return STATUS_SUCCESS;
+}
 
-    // Phase 1: Extract and stage
-    for (mz_uint i = 0; i < mz_zip_reader_get_num_files(&zipFileArchive); i++)
+/**
+ * Extracts files from the build archive and writes staged files.
+ *
+ * \param Context The setup context.
+ * \param ZipFileArchive The ZIP archive.
+ * \param NativeArchitecture The native processor architecture.
+ * \param TotalLength The total uncompressed length.
+ * \param StagedFiles The staged files list.
+ * \return Successful or errant status.
+ */
+static NTSTATUS SetupExtractBuildStageFiles(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _Inout_ mz_zip_archive* ZipFileArchive,
+    _In_ USHORT NativeArchitecture,
+    _In_ ULONG64 TotalLength,
+    _Inout_ PPH_LIST StagedFiles
+    )
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    ULONG64 currentLength = 0;
+    PPH_STRING extractPath = NULL;
+
+    for (mz_uint i = 0; i < mz_zip_reader_get_num_files(ZipFileArchive); i++)
     {
         PVOID buffer = NULL;
         size_t zipFileBufferLength = 0;
@@ -259,7 +285,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
         mz_ulong zipFileCrc32 = 0;
         mz_zip_archive_file_stat zipFileStat;
 
-        if (!mz_zip_reader_file_stat(&zipFileArchive, i, &zipFileStat))
+        if (!mz_zip_reader_file_stat(ZipFileArchive, i, &zipFileStat))
             continue;
 
         fileName = PhConvertUtf8ToUtf16(zipFileStat.m_filename);
@@ -275,7 +301,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
             continue;
         }
 
-        if (nativeArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
+        if (NativeArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
         {
             if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
                 PhStartsWithString2(fileName, L"arm64\\", TRUE))
@@ -287,7 +313,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
             if (PhStartsWithString2(fileName, L"amd64\\", TRUE))
                 PhMoveReference(&fileName, PhSubstring(fileName, 6, (fileName->Length / sizeof(WCHAR)) - 6));
         }
-        else if (nativeArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
+        else if (NativeArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
         {
             if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
                 PhStartsWithString2(fileName, L"amd64\\", TRUE))
@@ -312,7 +338,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
                 PhMoveReference(&fileName, PhSubstring(fileName, 5, (fileName->Length / sizeof(WCHAR)) - 5));
         }
 
-        if (!(buffer = mz_zip_reader_extract_to_heap(&zipFileArchive, zipFileStat.m_file_index, &zipFileBufferLength, 0)))
+        if (!(buffer = mz_zip_reader_extract_to_heap(ZipFileArchive, zipFileStat.m_file_index, &zipFileBufferLength, 0)))
         {
             PhDereferenceObject(fileName);
             status = STATUS_NO_MEMORY;
@@ -362,7 +388,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
         {
             if (NT_SUCCESS(status = SetupWriteFileAtomic(Context, extractPath, buffer, (ULONG)zipFileBufferLength)))
             {
-                PhAddItemList(stagedFiles, PhReferenceObject(extractPath));
+                PhAddItemList(StagedFiles, PhReferenceObject(extractPath));
             }
         }
 
@@ -374,7 +400,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
         currentLength += zipFileBufferLength;
 
         {
-            ULONG64 percent = 50 * currentLength / totalLength;
+            ULONG64 percent = 50 * currentLength / TotalLength;
             PH_FORMAT format[7];
             WCHAR string[MAX_PATH];
             PPH_STRING baseName = PhGetBaseName(extractPath);
@@ -390,7 +416,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
             PhInitFormatS(&format[0], L"Progress: ");
             PhInitFormatSize(&format[1], currentLength);
             PhInitFormatS(&format[2], L" of ");
-            PhInitFormatSize(&format[3], totalLength);
+            PhInitFormatSize(&format[3], TotalLength);
             PhInitFormatS(&format[4], L" (");
             PhInitFormatI64U(&format[5], percent);
             PhInitFormatS(&format[6], L"%)");
@@ -407,11 +433,32 @@ NTSTATUS CALLBACK SetupExtractBuild(
         }
     }
 
-    // Phase 2: Commit
-    for (ULONG i = 0; i < stagedFiles->Count; i++)
+CleanupExit:
+
+    if (extractPath)
+        PhDereferenceObject(extractPath);
+
+    return status;
+}
+
+/**
+ * Commits staged files to their final file names.
+ *
+ * \param Context The setup context.
+ * \param StagedFiles The staged files list.
+ * \return Successful or errant status.
+ */
+static NTSTATUS SetupExtractBuildCommitFiles(
+    _In_ PPH_SETUP_CONTEXT Context,
+    _In_ PPH_LIST StagedFiles
+    )
+{
+    NTSTATUS status = STATUS_SUCCESS;
+
+    for (ULONG i = 0; i < StagedFiles->Count; i++)
     {
-        PPH_STRING file = stagedFiles->Items[i];
-        ULONG64 percent = stagedFiles->Count ? 50 + (50 * (i + 1) / stagedFiles->Count) : 100;
+        PPH_STRING file = StagedFiles->Items[i];
+        ULONG64 percent = StagedFiles->Count ? 50 + (50 * (i + 1) / StagedFiles->Count) : 100;
         PH_FORMAT format[2];
         WCHAR string[MAX_PATH];
         PPH_STRING baseName = PhGetBaseName(file);
@@ -419,7 +466,7 @@ NTSTATUS CALLBACK SetupExtractBuild(
         if (!NT_SUCCESS(status = SetupCommitFile(Context, file)))
         {
             if (baseName) PhDereferenceObject(baseName);
-            goto CleanupExit;
+            return status;
         }
 
         PhInitFormatS(&format[0], L"Finalizing: ");
@@ -435,6 +482,71 @@ NTSTATUS CALLBACK SetupExtractBuild(
         if (baseName)
             PhDereferenceObject(baseName);
     }
+
+    return status;
+}
+
+/**
+ * Extracts the embedded build archive to the installation directory.
+ *
+ * \param Context The setup context.
+ * \return Successful or errant status.
+ */
+_Function_class_(USER_THREAD_START_ROUTINE)
+NTSTATUS CALLBACK SetupExtractBuild(
+    _In_ PPH_SETUP_CONTEXT Context
+    )
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    ULONG resourceLength;
+    PVOID resourceBuffer = NULL;
+    ULONG64 totalLength = 0;
+    mz_zip_archive zipFileArchive = { 0 };
+    USHORT nativeArchitecture;
+    PPH_LIST stagedFiles = NULL;
+
+    status = PhLoadResource(
+        NtCurrentImageBase(),
+        MAKEINTRESOURCE(IDR_BIN_DATA),
+        RT_RCDATA,
+        &resourceLength,
+        &resourceBuffer
+        );
+
+    if (!NT_SUCCESS(status))
+        return status;
+
+    if (!mz_zip_reader_init_mem(&zipFileArchive, resourceBuffer, resourceLength, 0))
+    {
+        return STATUS_INVALID_BUFFER_SIZE;
+    }
+
+    nativeArchitecture = SetupGetCurrentArchitecture();
+    stagedFiles = PhCreateList(100);
+
+    if (!NT_SUCCESS(status = SetupExtractBuildGetTotalLength(
+        &zipFileArchive,
+        nativeArchitecture,
+        &totalLength
+        )))
+    {
+        goto CleanupExit;
+    }
+
+    SendMessage(Context->DialogHandle, TDM_SET_MARQUEE_PROGRESS_BAR, FALSE, 0);
+
+    if (!NT_SUCCESS(status = SetupExtractBuildStageFiles(
+        Context,
+        &zipFileArchive,
+        nativeArchitecture,
+        totalLength,
+        stagedFiles
+        )))
+    {
+        goto CleanupExit;
+    }
+
+    status = SetupExtractBuildCommitFiles(Context, stagedFiles);
 
 CleanupExit:
 
@@ -457,9 +569,6 @@ CleanupExit:
     }
 
     mz_zip_reader_end(&zipFileArchive);
-
-    if (extractPath)
-        PhDereferenceObject(extractPath);
 
     return status;
 }

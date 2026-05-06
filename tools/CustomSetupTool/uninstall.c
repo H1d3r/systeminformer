@@ -11,6 +11,12 @@
 
 #include "setup.h"
 
+/**
+ * Uninstalls System Informer.
+ *
+ * \param Context The setup context.
+ * \return Successful or errant status.
+ */
 _Function_class_(USER_THREAD_START_ROUTINE)
 NTSTATUS CALLBACK SetupUninstallBuild(
     _In_ PPH_SETUP_CONTEXT Context
@@ -38,22 +44,39 @@ NTSTATUS CALLBACK SetupUninstallBuild(
         goto CleanupExit;
     }
 
+    //
     // Remove all Windows Options (registry cleanup)
+    //
+
     SetupDeleteWindowsOptions(Context);
 
+    //
     // Remove Windows Error Reporting.
+    //
+
     SetupDeleteLocalDumpsKey();
 
+    //
     // Remove all shortcuts.
+    //
     SetupDeleteShortcuts(Context);
 
+    //
     // Remove the uninstaller.
+    //
+
     SetupDeleteUninstallFile(Context);
 
+    //
     // Remove the ARP uninstall entry.
+    //
+
     SetupDeleteUninstallKey();
 
+    //
     // Remove the previous installation.
+    //
+
     if (!NT_SUCCESS(PhDeleteDirectoryWin32(&Context->SetupInstallPath->sr)))
     {
         static CONST PH_STRINGREF ksiFileName = PH_STRINGREF_INIT(L"ksi.dll");
@@ -84,7 +107,9 @@ NTSTATUS CALLBACK SetupUninstallBuild(
         Context->NeedsReboot = TRUE;
     }
 
+    //
     // Remove the application data.
+    //
     if (Context->SetupRemoveAppData)
         SetupDeleteAppdataDirectory(Context);
 
@@ -96,6 +121,16 @@ CleanupExit:
     return STATUS_UNSUCCESSFUL;
 }
 
+/**
+ * Callback for the uninstall confirmation task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK TaskDialogUninstallConfirmCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -182,6 +217,16 @@ HRESULT CALLBACK TaskDialogUninstallConfirmCallbackProc(
     return S_OK;
 }
 
+/**
+ * Callback for the uninstall error task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK TaskDialogUninstallErrorCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -208,6 +253,16 @@ HRESULT CALLBACK TaskDialogUninstallErrorCallbackProc(
     return S_OK;
 }
 
+/**
+ * Callback for the uninstall progress task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK TaskDialogUninstallCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -233,6 +288,16 @@ HRESULT CALLBACK TaskDialogUninstallCallbackProc(
     return S_OK;
 }
 
+/**
+ * Callback for the uninstall completed task dialog.
+ *
+ * \param hwndDlg The task dialog window handle.
+ * \param uMsg The notification message.
+ * \param wParam Additional message information.
+ * \param lParam Additional message information.
+ * \param dwRefData The setup context.
+ * \return S_OK to continue, otherwise an HRESULT value.
+ */
 HRESULT CALLBACK TaskDialogUninstallCompleteCallbackProc(
     _In_ HWND hwndDlg,
     _In_ UINT uMsg,
@@ -253,6 +318,11 @@ HRESULT CALLBACK TaskDialogUninstallCompleteCallbackProc(
     return S_OK;
 }
 
+/**
+ * Shows the uninstall completed page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUninstallCompletedPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -278,6 +348,11 @@ VOID ShowUninstallCompletedPageDialog(
     PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
+/**
+ * Shows the uninstall progress page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUninstallingPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -299,6 +374,11 @@ VOID ShowUninstallingPageDialog(
     PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
+/**
+ * Shows the uninstall error page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUninstallErrorPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
@@ -324,6 +404,11 @@ VOID ShowUninstallErrorPageDialog(
     PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
 
+/**
+ * Shows the uninstall confirmation page.
+ *
+ * \param Context The setup context.
+ */
 VOID ShowUninstallPageDialog(
     _In_ PPH_SETUP_CONTEXT Context
     )
