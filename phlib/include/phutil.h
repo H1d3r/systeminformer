@@ -1234,7 +1234,7 @@ PhConvertNtPathSeperatorToAltSeperator(
 {
     if (String)
     {
-        for (ULONG i = 0; i < String->Length / sizeof(WCHAR); i++)
+        for (SIZE_T i = 0; i < String->Length / sizeof(WCHAR); i++)
         {
             if (String->Buffer[i] == OBJ_NAME_PATH_SEPARATOR) // RtlNtPathSeperatorString
                 String->Buffer[i] = OBJ_NAME_ALTPATH_SEPARATOR; // RtlAlternateDosPathSeperatorString
@@ -1243,6 +1243,25 @@ PhConvertNtPathSeperatorToAltSeperator(
 
     return String;
 }
+
+FORCEINLINE
+PPH_STRING
+PhConvertAltSeperatorToNtPathSeperator(
+    _In_ PPH_STRING String
+    )
+{
+    if (String)
+    {
+        for (SIZE_T i = 0; i < String->Length / sizeof(WCHAR); i++)
+        {
+            if (String->Buffer[i] == OBJ_NAME_ALTPATH_SEPARATOR)
+                String->Buffer[i] = OBJ_NAME_PATH_SEPARATOR;
+        }
+    }
+
+    return String;
+}
+
 
 PHLIBAPI
 PPH_STRING
