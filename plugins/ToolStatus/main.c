@@ -1386,8 +1386,9 @@ LRESULT CALLBACK MainWindowCallbackProc(
                         if (processNode = PhFindProcessNode(clientId.UniqueProcess))
                         {
                             SystemInformer_SelectTabPage(0);
-                            SystemInformer_SelectProcessNode(processNode);
-                            SystemInformer_ToggleVisible(FALSE);
+                            //SystemInformer_SelectProcessNode(processNode);
+                            //SystemInformer_ToggleVisible(FALSE);
+                            PhSelectAndEnsureVisibleProcessNode(processNode);
                         }
 
                         switch (TargetingMode)
