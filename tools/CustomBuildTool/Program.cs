@@ -531,7 +531,6 @@ namespace CustomBuildTool
             {
                 bool verbose = parseResult.GetValue(verboseOption);
                 BuildFlags flags = BuildFlags.Release | (verbose ? BuildFlags.BuildVerbose : BuildFlags.None);
-
                 BuildToolsId.CheckForOutOfDateTools();
                 Build.SetupBuildEnvironment(true);
 
@@ -545,8 +544,8 @@ namespace CustomBuildTool
                         Environment.Exit(1);
                 }
 
-                if (!Build.CopyTextFiles(false, flags))
-                    Environment.Exit(1);
+                if (!Build.CopyTextFiles(false, flags)) Environment.Exit(1);
+                if (!Build.BuildPdbZip(false, flags)) Environment.Exit(1);
 
                 Build.ShowBuildStats();
             });
@@ -568,8 +567,9 @@ namespace CustomBuildTool
                 BuildFlags flags = BuildFlags.Release | (verbose ? BuildFlags.BuildVerbose : BuildFlags.None);
                 Build.SetupBuildEnvironment(true);
 
-                if (!Build.BuildPdbZip(false, flags)) Environment.Exit(1);
-                if (!await BuildDeploy.BuildUpdateServerConfig()) Environment.Exit(1);
+                if (!await BuildDeploy.BuildUpdateServerConfig()) 
+                    Environment.Exit(1);
+
                 Build.ShowBuildStats();
             });
             return cmd;
