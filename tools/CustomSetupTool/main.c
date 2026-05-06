@@ -449,9 +449,6 @@ BOOLEAN NTAPI MainPropSheetCommandLineCallback(
         case SETUP_CMD_HIDE:
             context->Hide = TRUE;
             break;
-        case SETUP_CMD_UICANARY:
-            context->UiCanary = TRUE;
-            break;
         }
 
         if (Option->Id == SETUP_CMD_UPDATE && Value)
@@ -521,7 +518,6 @@ VOID SetupParseCommandLine(
         // tray and does not show the main window.
         //
         { SETUP_CMD_HIDE,       L"hide",       NoArgumentType },
-        { SETUP_CMD_UICANARY,   L"uicanary",   NoArgumentType },
     };
     PH_STRINGREF commandLine;
 
