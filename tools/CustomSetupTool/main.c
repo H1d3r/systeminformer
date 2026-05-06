@@ -544,33 +544,22 @@ VOID SetupInitializeMutant(
     )
 {
     HANDLE mutantHandle;
-    PPH_STRING objectName;
-    OBJECT_ATTRIBUTES objectAttributes;
-    UNICODE_STRING objectNameUs;
+    SIZE_T returnLength;
     PH_FORMAT format[2];
+    WCHAR formatBuffer[0x100];
 
     PhInitFormatS(&format[0], L"SiSetupMutant_");
     PhInitFormatU(&format[1], HandleToUlong(NtCurrentProcessId()));
 
-    objectName = PhFormat(format, 2, 16);
-    PhStringRefToUnicodeString(&objectName->sr, &objectNameUs);
+    if (PhFormatToBuffer(format, 2, formatBuffer, sizeof(formatBuffer), &returnLength))
+    {
+        PH_STRINGREF stringFormat;
 
-    InitializeObjectAttributes(
-        &objectAttributes,
-        &objectNameUs,
-        OBJ_CASE_INSENSITIVE,
-        PhGetNamespaceHandle(),
-        NULL
-        );
+        stringFormat.Buffer = formatBuffer;
+        stringFormat.Length = returnLength - sizeof(UNICODE_NULL);
 
-    NtCreateMutant(
-        &mutantHandle,
-        MUTANT_QUERY_STATE,
-        &objectAttributes,
-        TRUE
-        );
-
-    PhDereferenceObject(objectName);
+        PhCreateMutant(&mutantHandle, MUTANT_QUERY_STATE, PhGetNamespaceHandle(), &stringFormat, TRUE);
+    }
 }
 
 /**
@@ -615,9 +604,9 @@ INT WINAPI wWinMain(
     {
         PhGuiSupportInitialization();
 
-        if (context->SetupMode == SetupCommandInstall)
-            SetupShowWizard(context);
-        else
+        //if (context->SetupMode == SetupCommandInstall)
+        //    SetupShowWizard(context);
+        //else
             SetupShowDialog(context);
     }
 

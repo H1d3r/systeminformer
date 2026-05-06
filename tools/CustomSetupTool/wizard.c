@@ -319,6 +319,29 @@ VOID SetupPaintDarkButton(
     oldTextColor = SetTextColor(hdc, disabled ? SetupWizardColorDisabledText : SetupWizardColorText);
     HFONT font = SelectFont(hdc, GetWindowFont(windowHandle));
 
+    // Draw the button image list (if any) before the text so the text is painted
+    // on top. Guard against a NULL himl: Button_GetImageList can succeed while
+    // leaving himl NULL when no image list has been assigned to the button.
+    BUTTON_IMAGELIST biml = { 0 };
+
+    if (Button_GetImageList(windowHandle, &biml) && biml.himl)
+    {
+        LONG cx = 0;
+        LONG cy = 0;
+
+        if (ImageList_GetIconSize(biml.himl, &cx, &cy) && cx > 0 && cy > 0)
+        {
+            LONG imageX = textRect.left + biml.margin.left;
+            LONG imageY = CustomDraw->rc.top + (CustomDraw->rc.bottom - CustomDraw->rc.top - cy) / 2;
+            ULONG drawStyle = disabled ? (ILD_TRANSPARENT | ILD_BLEND50) : ILD_TRANSPARENT;
+
+            ImageList_Draw(biml.himl, 0, hdc, imageX, imageY, drawStyle);
+
+            // Shrink the text rect so the label does not overlap the image.
+            textRect.left += biml.margin.left + cx + biml.margin.right;
+        }
+    }
+
     DrawText(
         hdc,
         text,
@@ -330,49 +353,6 @@ VOID SetupPaintDarkButton(
     SelectFont(hdc, font);
     SetTextColor(hdc, oldTextColor);
     SetBkMode(hdc, oldBkMode);
-}
-
-/**
- * Subclass procedure for dark-mode button painting.
- */
-LRESULT CALLBACK SetupDarkButtonSubclassProc(
-    _In_ HWND WindowHandle,
-    _In_ UINT uMsg,
-    _In_ WPARAM wParam,
-    _In_ LPARAM lParam,
-    _In_ UINT_PTR SubclassId,
-    _In_ DWORD_PTR RefData
-    )
-{
-    switch (uMsg)
-    {
-    case WM_NCDESTROY:
-        RemoveWindowSubclass(WindowHandle, SetupDarkButtonSubclassProc, SubclassId);
-        break;
-    //case WM_ERASEBKGND:
-    //    return TRUE;
-    //case WM_PAINT:
-    //    {
-    //        PAINTSTRUCT paint;
-    //        HDC dcHandle;
-
-    //        dcHandle = BeginPaint(WindowHandle, &paint);
-    //        //SetupPaintDarkButton(WindowHandle, dcHandle);
-    //        EndPaint(WindowHandle, &paint);
-    //    }
-    //    return 0;
-    case WM_ENABLE:
-    case BM_SETCHECK:
-    case BM_SETSTATE:
-    case WM_SETFOCUS:
-    case WM_KILLFOCUS:
-    case WM_MOUSEMOVE:
-    case WM_MOUSELEAVE:
-        InvalidateRect(WindowHandle, NULL, TRUE);
-        break;
-    }
-
-    return DefSubclassProc(WindowHandle, uMsg, wParam, lParam);
 }
 
 /**
@@ -597,18 +577,14 @@ VOID SetupApplyDarkModeToControl(
 
     if (GetClassName(WindowHandle, className, ARRAYSIZE(className)))
     {
-        if (PhEqualStringZ(className, L"Button", TRUE))
-        {
-        //SetWindowSubclass(WindowHandle, SetupDarkButtonSubclassProc, SETUP_DARKMODE_SUBCLASS_ID, 0);
-        }
-        else if (PhEqualStringZ(className, L"Edit", TRUE))
+        if (PhEqualStringZ(className, L"Edit", TRUE))
         {
             SetWindowSubclass(WindowHandle, SetupDarkEditSubclassProc, SETUP_DARKMODE_SUBCLASS_ID, 0);
             SetupRedrawEditBorder(WindowHandle);
         }
         else if (PhEqualStringZ(className, L"msctls_progress32", TRUE))
         {
-            SetWindowTheme(WindowHandle, L"", L"");
+            //SetWindowTheme(WindowHandle, L"", L"");
             SendMessage(WindowHandle, PBM_SETBKCOLOR, 0, SetupWizardColorControl);
             SendMessage(WindowHandle, PBM_SETBARCOLOR, 0, RGB(0, 120, 215));
         }
@@ -1187,6 +1163,11 @@ INT_PTR CALLBACK SetupWelcomePageDlgProc(
             SetupApplyDarkModeToPage(WindowHandle);
 
             SetupSetWizardButtons(WindowHandle, PSWIZB_NEXT, FALSE, TRUE, FALSE, TRUE);
+
+            if (!PhGetOwnTokenAttributes().Elevated)
+            {
+                Button_SetElevationRequiredState(GetDlgItem(GetParent(WindowHandle), IDC_PROPSHEET_NEXT), TRUE);
+            }
         }
         break;
     case WM_NOTIFY:
@@ -1209,6 +1190,53 @@ INT_PTR CALLBACK SetupWelcomePageDlgProc(
                 break;
             case PSN_QUERYCANCEL:
                 return !SetupCancelWizard(WindowHandle, context);
+            case PSN_WIZNEXT:
+                {
+                    if (PhGetOwnTokenAttributes().Elevated)
+                    {
+                        if (!context->SetupIsLegacyUpdate && NT_SUCCESS(SetupLegacySetupInstalled()))
+                        {
+                            SetupShowMessagePromptForLegacyVersion();
+                        }
+                    }
+                    else
+                    {
+                        NTSTATUS status;
+                        PPH_STRING applicationFileName;
+                        PH_STRINGREF applicationCommandLine;
+
+                        if (NT_SUCCESS(status = PhGetProcessCommandLineStringRef(&applicationCommandLine)))
+                        {
+                            if (applicationFileName = PhGetApplicationFileNameWin32())
+                            {
+                                status = PhShellExecuteEx(
+                                    NULL,
+                                    PhGetString(applicationFileName),
+                                    PhGetStringRefZ(&applicationCommandLine),
+                                    NULL,
+                                    SW_SHOW,
+                                    PH_SHELL_EXECUTE_ADMIN,
+                                    0,
+                                    NULL
+                                    );
+
+                                if (NT_SUCCESS(status))
+                                {
+                                    PhExitApplication(status);
+                                }
+                                else
+                                {
+                                    PhShowStatus(NULL, L"Unable to restart the application.", status, 0);
+                                }
+
+                                PhDereferenceObject(applicationFileName);
+                            }
+                        }
+                        SetWindowLongPtr(WindowHandle, DWLP_MSGRESULT, TRUE);
+                        return TRUE;
+                    }
+                }
+                break;
             }
         }
         break;
