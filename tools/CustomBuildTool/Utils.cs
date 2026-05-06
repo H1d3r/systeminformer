@@ -236,6 +236,21 @@ namespace CustomBuildTool
             return outputString.Trim();
         }
 
+        public static string ExecuteVsWhereCommand(IEnumerable<string> Arguments)
+        {
+            string file = GetVswhereFilePath();
+
+            if (string.IsNullOrWhiteSpace(file))
+            {
+                Program.PrintColorMessage("[ExecuteVsWhereCommand] VswhereFilePath is invalid.", ConsoleColor.Red);
+                return null;
+            }
+
+            Win32.CreateProcess(file, Arguments, out var outputString, false);
+
+            return outputString.Trim();
+        }
+
         /// <summary>
         /// Attempts to set the current working directory to the nearest parent directory containing the specified file.
         /// </summary>
@@ -406,8 +421,17 @@ namespace CustomBuildTool
 
             {
                 string vswhereResult = ExecuteVsWhereCommand(
-                    "-latest -prerelease -products * -requiresAny -requires Microsoft.Component.MSBuild -property installationPath"
-                    );
+                    [
+                        "-latest",
+                        "-prerelease",
+                        "-products",
+                        "*",
+                        "-requiresAny",
+                        "-requires",
+                        "Microsoft.Component.MSBuild",
+                        "-property",
+                        "installationPath"
+                    ]);
 
                 if (!string.IsNullOrWhiteSpace(vswhereResult))
                 {
@@ -428,8 +452,17 @@ namespace CustomBuildTool
 
             {
                 string vswhereResult = ExecuteVsWhereCommand(
-                    "-latest -prerelease -products * -requiresAny -requires Microsoft.Component.MSBuild -find \"MSBuild\\**\\Bin\\MSBuild.exe"
-                    );
+                    [
+                        "-latest",
+                        "-prerelease",
+                        "-products",
+                        "*",
+                        "-requiresAny",
+                        "-requires",
+                        "Microsoft.Component.MSBuild",
+                        "-find",
+                        "MSBuild\\**\\Bin\\MSBuild.exe"
+                    ]);
 
                 if (!string.IsNullOrWhiteSpace(vswhereResult))
                 {
@@ -548,6 +581,35 @@ namespace CustomBuildTool
             return outputString.Trim();
         }
 
+        public static string ExecuteGitCommand(string WorkingFolder, IEnumerable<string> Arguments)
+        {
+            if (string.IsNullOrWhiteSpace(WorkingFolder) || !Directory.Exists(WorkingFolder))
+            {
+                Program.PrintColorMessage("[ExecuteGitCommand] WorkingFolder is invalid.", ConsoleColor.Red);
+                return null;
+            }
+
+            string currentGitPath = GetGitFilePath();
+
+            if (string.IsNullOrWhiteSpace(currentGitPath))
+            {
+                Program.PrintColorMessage("[ExecuteGitCommand] GitFilePath is invalid.", ConsoleColor.Red);
+                return null;
+            }
+
+            List<string> arguments = new List<string>
+            {
+                "-C",
+                WorkingFolder
+            };
+
+            arguments.AddRange(Arguments);
+
+            Win32.CreateProcess(currentGitPath, arguments, out var outputString, false);
+
+            return outputString.Trim();
+        }
+
         /// <summary>
         /// Enumerates all files in the specified directory and its subdirectories that match the given file extensions,
         /// optionally excluding specified file names.
@@ -560,20 +622,25 @@ namespace CustomBuildTool
         /// <param name="Exclude">An optional array of file names to exclude from the results. Comparison is case-insensitive.</param>
         /// <returns>A list of file paths that match the specified extensions and are not excluded. The list will be empty if no
         /// files are found.</returns>
-        public static List<string> EnumerateDirectory(string FilePath, string[] Extensions, string[] Exclude = null)
+        public static IEnumerable<string> EnumerateDirectory(string FilePath, string[] Extensions, string[] Exclude = null)
         {
-            var list = Directory.EnumerateFiles(FilePath, "*", new EnumerationOptions
+            var files = Directory.EnumerateFiles(FilePath, "*", new EnumerationOptions
             {
                 RecurseSubdirectories = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
                 ReturnSpecialDirectories = false
-            }).Where(s => Extensions.Any(ext => string.Equals(ext, Path.GetExtension(s), StringComparison.OrdinalIgnoreCase))).ToList();
+            });
 
-            if (Exclude != null)
+            foreach (var s in files)
             {
-                list.RemoveAll(s => Exclude.Any(f => f.Equals(Path.GetFileName(s), StringComparison.OrdinalIgnoreCase)));
+                if (Extensions.Any(ext => string.Equals(ext, Path.GetExtension(s), StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (Exclude == null || !Exclude.Any(f => f.Equals(Path.GetFileName(s), StringComparison.OrdinalIgnoreCase)))
+                    {
+                        yield return s;
+                    }
+                }
             }
-
-            return list;
         }
 
         /// <summary>
@@ -878,7 +945,6 @@ namespace CustomBuildTool
         public static int ExecuteCMakeCommand(string Command)
         {
             string cmakeFile = GetCMakeFilePath();
-
             if (string.IsNullOrWhiteSpace(cmakeFile))
             {
                 Program.PrintColorMessage("[ExecuteCMakeCommand] cmake.exe is invalid.", ConsoleColor.Red);
@@ -886,6 +952,12 @@ namespace CustomBuildTool
             }
 
             var instance = BuildVisualStudio.GetVisualStudioInstance();
+            if (instance == null)
+            {
+                Program.PrintColorMessage("[ExecuteCMakeCommand] instance not found.", ConsoleColor.Red);
+                return int.MaxValue;
+            }
+
             string vcvarsall = Path.Join([instance.Path, "VC\\Auxiliary\\Build\\vcvarsall.bat"]);
             string arch = null;
 
@@ -904,9 +976,9 @@ namespace CustomBuildTool
 
             // We need to run vcvarsall.bat and then cmake in the same session.
             // Using cmd /c "call vcvarsall.bat arch && cmake ..."
-            string fullCommand = $"/c \"call \"{vcvarsall}\" {arch} && \"{cmakeFile}\" {Command}\"";
+            string fullCommand = $"call \"{vcvarsall}\" {arch} && \"{cmakeFile}\" {Command}";
 
-            return Win32.CreateProcess("cmd.exe", fullCommand, out _, false, false);
+            return Win32.CreateProcess("cmd.exe", ["/c", fullCommand], out _, false, false);
         }
 
         /// <summary>
@@ -983,6 +1055,10 @@ namespace CustomBuildTool
             return symStorePath;
         }
 
+        /// <summary>
+        /// Determines whether the symstore.exe file exists and is valid.
+        /// </summary>
+        /// <returns>true if the symstore.exe file exists and is valid; otherwise, false.</returns>
         public static bool SymStoreExists()
         {
             string file = GetSymStorePath();
@@ -1002,6 +1078,11 @@ namespace CustomBuildTool
             return true;
         }
 
+        /// <summary>
+        /// Executes a command using symstore.exe and returns the process exit code.
+        /// </summary>
+        /// <param name="Command">The command-line arguments to pass to symstore.exe.</param>
+        /// <returns>The exit code of the process, or int.MaxValue if symstore.exe is invalid or not found.</returns>
         public static int ExecuteSymStoreCommand(string Command)
         {
             string file = GetSymStorePath();
@@ -1048,12 +1129,17 @@ namespace CustomBuildTool
 
             int errorcode = Win32.CreateProcess(
                 vswhere,
-                "-latest " +
-                "-prerelease " +
-                "-products * " +
-                "-requiresAny " +
-                "-requires Microsoft.Component.MSBuild " +
-                "-property installationPath ",
+                [
+                    "-latest",
+                    "-prerelease",
+                    "-products",
+                    "*",
+                    "-requiresAny",
+                    "-requires",
+                    "Microsoft.Component.MSBuild",
+                    "-property",
+                    "installationPath"
+                ],
                 out string vswhereResult
                 );
 
@@ -1208,10 +1294,9 @@ namespace CustomBuildTool
 
             byte[] buffer = new byte[length];
 
-            using (MemoryStream stream = new MemoryStream(buffer, true))
-            using (FileStream sr = new FileStream(FileName, options))
+            using (FileStream filestream = new FileStream(FileName, options))
             {
-                sr.CopyTo(stream);
+                filestream.ReadExactly(buffer);
             }
 
             return buffer;
@@ -1224,7 +1309,7 @@ namespace CustomBuildTool
         /// exist.</remarks>
         /// <param name="FileName">The path to the file to write.</param>
         /// <param name="Buffer">The byte array to write to the file.</param>
-        public static void WriteAllBytes(string FileName, byte[] Buffer)
+        public static void WriteAllBytes(string FileName, ReadOnlySpan<byte> Buffer)
         {
             FileStreamOptions options = new FileStreamOptions
             {
@@ -1232,14 +1317,13 @@ namespace CustomBuildTool
                 Access = FileAccess.Write,
                 Share = FileShare.Write | FileShare.Delete,
                 Options = FileOptions.SequentialScan,
-                PreallocationSize = Buffer.LongLength,
+                PreallocationSize = Buffer.Length,
                 BufferSize = 0x1000,
             };
 
-            using (MemoryStream stream = new MemoryStream(Buffer, true))
             using (FileStream filestream = new FileStream(FileName, options))
             {
-                stream.CopyTo(filestream);
+                filestream.Write(Buffer);
             }
         }
 
@@ -1293,8 +1377,19 @@ namespace CustomBuildTool
                         if (string.IsNullOrWhiteSpace(variable))
                             break;
 
-                        string[] parts = variable.Split('=', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                        EnvironmentBlock.Add(parts[0], parts.Length <= 1 ? string.Empty : parts[1]);
+                        ReadOnlySpan<char> varSpan = variable.AsSpan();
+                        int eqIndex = varSpan.IndexOf('=');
+
+                        if (eqIndex != -1)
+                        {
+                            string key = varSpan[..eqIndex].Trim().ToString();
+                            string val = varSpan[(eqIndex + 1)..].Trim().ToString();
+                            EnvironmentBlock.Add(key, val);
+                        }
+                        else
+                        {
+                            EnvironmentBlock.Add(variable.Trim(), string.Empty);
+                        }
 
                         offset += variable.Length + 1;
                     }
@@ -1341,67 +1436,6 @@ namespace CustomBuildTool
             long fileTime = ((long)FileTime.dwHighDateTime << 32) + FileTime.dwLowDateTime;
 
             return fileTime;
-        }
-
-        /// <summary>
-        /// Validates the export directory of a PE image file to determine if exported functions are defined.
-        /// </summary>
-        /// <remarks>This method checks the export directory of the specified PE image file and reports
-        /// missing exported functions. If exported functions are missing, a message is printed to the console. The
-        /// method unmaps the image file after validation.</remarks>
-        /// <param name="FileName">The path to the PE image file to validate. Cannot be null or empty.</param>
-        /// <returns>true if the image file contains an export directory with no exported function names; otherwise, false.</returns>
-        public static bool ValidateImageExports(string FileName)
-        {
-            LOADED_IMAGE loadedMappedImage = default;
-            IMAGE_EXPORT_DIRECTORY* exportDirectory;
-
-            try
-            {
-                if (!PInvoke.MapAndLoad(FileName, null, out loadedMappedImage, false, true))
-                    return false;
-
-                try
-                {
-                    exportDirectory = (IMAGE_EXPORT_DIRECTORY*)PInvoke.ImageDirectoryEntryToData(
-                        loadedMappedImage.MappedAddress, false,
-                        IMAGE_DIRECTORY_ENTRY.IMAGE_DIRECTORY_ENTRY_EXPORT, out uint DirectorySize
-                        );
-
-                    if (exportDirectory != null)
-                    {
-                        if (exportDirectory->NumberOfNames == 0)
-                            return true;
-
-                        Program.PrintColorMessage("Exported functions missing from module export definition file: ", ConsoleColor.Yellow);
-
-                        uint* exportNameTable = (uint*)PInvoke.ImageRvaToVa(loadedMappedImage.FileHeader, loadedMappedImage.MappedAddress, exportDirectory->AddressOfNames, null);
-
-                        for (uint i = 0; i < exportDirectory->NumberOfNames; i++)
-                        {
-                            uint nameRva = exportNameTable[i];
-                            IntPtr namePtr = (IntPtr)PInvoke.ImageRvaToVa(loadedMappedImage.FileHeader, loadedMappedImage.MappedAddress, nameRva, null);
-                            var exportName = Marshal.PtrToStringUTF8(namePtr);
-
-                            Program.PrintColorMessage($"{i}: {exportName}", ConsoleColor.Yellow);
-                        }
-                    }
-                    else
-                    {
-                        Program.PrintColorMessage("IMAGE_DIRECTORY_ENTRY_EXPORT", ConsoleColor.Red);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Program.PrintColorMessage($"ValidateImageExports: {ex}", ConsoleColor.Red);
-                }
-            }
-            finally
-            {
-                PInvoke.UnMapAndLoad(ref loadedMappedImage);
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -2550,7 +2584,7 @@ namespace CustomBuildTool
         public Dictionary<string, string> Documents { get; init; }
     }
 
-    public class NugetVersionResponse
+    public class NugetFlatContainerResponse
     {
         [JsonPropertyName("versions")]
         public List<string> Versions { get; init; }
@@ -2682,31 +2716,41 @@ namespace CustomBuildTool
     [InterpolatedStringHandler]
     public readonly ref struct LogInterpolatedStringHandler
     {
-        public readonly StringBuilder builder;
+        private readonly StringBuilder _builder;
+        public readonly bool Enabled;
 
-        public LogInterpolatedStringHandler(int literalLength, int formattedCount)
+        public LogInterpolatedStringHandler(int literalLength, int formattedCount, out bool enabled)
         {
-            builder = new StringBuilder(literalLength);
+            this.Enabled = true;
+            enabled = true;
+            this._builder = new StringBuilder(literalLength);
+        }
+
+        public LogInterpolatedStringHandler(int literalLength, int formattedCount, BuildFlags Flags, out bool enabled)
+        {
+            this.Enabled = (Flags & BuildFlags.BuildVerbose) != 0;
+            enabled = this.Enabled;
+            this._builder = enabled ? new StringBuilder(literalLength) : null;
         }
 
         public void AppendLiteral(string s)
         {
-            builder.Append(s.AsSpan());
+            _builder?.Append(s.AsSpan());
         }
 
         public void AppendFormatted<T>(T t)
         {
-            builder.Append(t?.ToString());
+            _builder?.Append(t?.ToString());
         }
 
         public void AppendFormatted<T>(T t, string format) where T : IFormattable
         {
-            builder.Append(t?.ToString(format, null));
+            _builder?.Append(t?.ToString(format, null));
         }
 
         internal string GetFormattedText()
         {
-            return builder.ToString();
+            return _builder?.ToString() ?? string.Empty;
         }
     }
 

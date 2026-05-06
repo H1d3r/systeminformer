@@ -154,7 +154,7 @@ namespace CustomBuildTool
 
                 if (string.IsNullOrWhiteSpace(Build.BuildCommitHash) && !string.IsNullOrWhiteSpace(Utils.GetGitFilePath()))
                 {
-                    Build.BuildCommitHash = Utils.ExecuteGitCommand(Build.BuildWorkingFolder, "rev-parse HEAD");
+                    Build.BuildCommitHash = Utils.ExecuteGitCommand(Build.BuildWorkingFolder, ["rev-parse", "HEAD"]);
                 }
 
                 if (Win32.GetEnvironmentVariable("BUILD_SOURCEBRANCHNAME", out var buildBranchName))
@@ -164,7 +164,7 @@ namespace CustomBuildTool
 
                 if (string.IsNullOrWhiteSpace(Build.BuildCommitBranch) && !string.IsNullOrWhiteSpace(Utils.GetGitFilePath()))
                 {
-                    Build.BuildCommitBranch = Utils.ExecuteGitCommand(Build.BuildWorkingFolder, "branch --show-current");
+                    Build.BuildCommitBranch = Utils.ExecuteGitCommand(Build.BuildWorkingFolder, ["branch", "--show-current"]);
                 }
             }
 
@@ -622,7 +622,7 @@ namespace CustomBuildTool
                         continue;
                     }
 
-                    if (!Utils.ValidateImageExports(exePath))
+                    if (!PEImage.ValidateImageExports(exePath))
                         return false;
                 }
             }
@@ -1553,9 +1553,9 @@ namespace CustomBuildTool
         private static bool ExecuteBuildCMakeScriptCommand(string Generator, string Configuration, string Toolchain, string Action, BuildFlags Flags)
         {
             string scriptPath = Path.Join([Build.BuildWorkingFolder, "build\\build_cmake.cmd"]);
-            string commandLine = $"/c \"cd /d \"{Build.BuildWorkingFolder}\" && call \"{scriptPath}\" \"{Generator}\" \"{Configuration}\" \"{Toolchain}\" \"{Action}\"\"";
+            string commandLine = $"cd /d \"{Build.BuildWorkingFolder}\" && call \"{scriptPath}\" \"{Generator}\" \"{Configuration}\" \"{Toolchain}\" \"{Action}\"";
 
-            int errorCode = Win32.CreateProcess("cmd.exe", commandLine, out _, false, false);
+            int errorCode = Win32.CreateProcess("cmd.exe", ["/c", commandLine], out _, false, false);
             if (errorCode != 0)
             {
                 Program.PrintColorMessage($"[ERROR] build_cmake.cmd {Action} failed ({errorCode})", ConsoleColor.Red, true, Flags);
@@ -1950,7 +1950,7 @@ namespace CustomBuildTool
             {
                 if (!string.IsNullOrWhiteSpace(Utils.GetGitFilePath()))
                 {
-                    string output = Utils.ExecuteGitCommand(BuildWorkingFolder, "clean -x -d -f");
+                    string output = Utils.ExecuteGitCommand(BuildWorkingFolder, ["clean", "-x", "-d", "-f"]);
 
                     Program.PrintColorMessage(output, ConsoleColor.DarkGray);
                 }
@@ -2093,8 +2093,10 @@ namespace CustomBuildTool
             StringBuilder output_header = new StringBuilder();
 
             var content = Utils.ReadAllText(Path.Join("SystemInformer", "SystemInformer.def"));
-            var lines = content.Split("\r\n");
-            int total = lines.Length;
+
+            int total = 0;
+            foreach (var _ in content.AsSpan().EnumerateLines())
+                total++;
 
             //if (ReleaseBuild)
             //{
@@ -2118,9 +2120,9 @@ namespace CustomBuildTool
 
             output_header.AppendLine(ExportHeader);
 
-            foreach (string line in lines)
+            foreach (var line in content.AsSpan().EnumerateLines())
             {
-                var span = line.AsSpan();
+                var span = line;
 
                 if (span.IsWhiteSpace())
                 {
@@ -2132,9 +2134,9 @@ namespace CustomBuildTool
                     if (span.StartsWith("    ", StringComparison.OrdinalIgnoreCase))
                     {
                         var ordinal = ordinals[0]; ordinals.RemoveAt(0);
-                        var name_end = span.Slice(4).IndexOf(' ');
+                        var name_end = span[4..].IndexOf(' ');
                         if (name_end == -1)
-                            name_end = span.Slice(4).Length;
+                            name_end = span[4..].Length;
                         var name = span.Slice(4, name_end).ToString();
 
                         if (span.IndexOf(" DATA", StringComparison.OrdinalIgnoreCase) != -1)
