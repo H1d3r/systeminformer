@@ -5490,14 +5490,22 @@ VOID PhCustomDrawTreeTimeLine(
     }
 
     // Clamp percent between 0 and 100, avoid division by zero.
-    if (createTime.QuadPart > startTime.QuadPart || startTime.QuadPart == 0)
+    if (createTime.QuadPart > startTime.QuadPart || startTime.QuadPart <= 0)
     {
         SetFlag(Flags, PH_DRAW_TIMELINE_OVERFLOW);
         percent = 100;
     }
+    else if (createTime.QuadPart <= 0)
+    {
+        percent = 0;
+    }
     else
     {
-        percent = PhMultiplyDivideSigned((LONG)createTime.QuadPart, 100, (LONG)startTime.QuadPart);
+        percent = (LONG)(
+            ((ULONG64)createTime.QuadPart * 100 + ((ULONG64)startTime.QuadPart / 2)) /
+            (ULONG64)startTime.QuadPart
+            );
+
         if (percent < 0) percent = 0;
         else if (percent > 100) percent = 100;
     }
