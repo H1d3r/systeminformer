@@ -311,6 +311,7 @@ HRESULT CALLBACK TaskDialogUninstallCompleteCallbackProc(
     switch (uMsg)
     {
     case TDN_NAVIGATED:
+        SetupApplyDarkModeToPage(hwndDlg);
         SendMessage(hwndDlg, TDM_SET_PROGRESS_BAR_POS, 100, 0);
         break;
     }
@@ -439,3 +440,4 @@ VOID ShowUninstallPageDialog(
 
     PhTaskDialogNavigatePage(Context->DialogHandle, &config);
 }
+

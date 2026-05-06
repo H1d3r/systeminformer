@@ -292,8 +292,8 @@ static NTSTATUS SetupExtractBuildGetTotalLength(
 
         if (NativeArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
         {
-            if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
-                PhStartsWithString2(fileName, L"arm64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"i386", TRUE) ||
+                PhStartsWithString2(fileName, L"arm64", TRUE))
             {
                 PhDereferenceObject(fileName);
                 continue;
@@ -301,8 +301,8 @@ static NTSTATUS SetupExtractBuildGetTotalLength(
         }
         else if (NativeArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
         {
-            if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
-                PhStartsWithString2(fileName, L"amd64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"i386", TRUE) ||
+                PhStartsWithString2(fileName, L"amd64", TRUE))
             {
                 PhDereferenceObject(fileName);
                 continue;
@@ -310,8 +310,8 @@ static NTSTATUS SetupExtractBuildGetTotalLength(
         }
         else
         {
-            if (PhStartsWithString2(fileName, L"amd64\\", TRUE) ||
-                PhStartsWithString2(fileName, L"arm64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"amd64", TRUE) ||
+                PhStartsWithString2(fileName, L"arm64", TRUE))
             {
                 PhDereferenceObject(fileName);
                 continue;
@@ -374,39 +374,45 @@ static NTSTATUS SetupExtractBuildStageFiles(
 
         if (NativeArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
         {
-            if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
-                PhStartsWithString2(fileName, L"arm64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"i386", TRUE) ||
+                PhStartsWithString2(fileName, L"arm64", TRUE))
             {
                 PhDereferenceObject(fileName);
                 continue;
             }
 
-            if (PhStartsWithString2(fileName, L"amd64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"amd64", TRUE))
+            {
                 PhMoveReference(&fileName, PhSubstring(fileName, 6, (fileName->Length / sizeof(WCHAR)) - 6));
+            }
         }
         else if (NativeArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
         {
-            if (PhStartsWithString2(fileName, L"i386\\", TRUE) ||
-                PhStartsWithString2(fileName, L"amd64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"i386", TRUE) ||
+                PhStartsWithString2(fileName, L"amd64", TRUE))
             {
                 PhDereferenceObject(fileName);
                 continue;
             }
 
-            if (PhStartsWithString2(fileName, L"arm64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"arm64", TRUE))
+            {
                 PhMoveReference(&fileName, PhSubstring(fileName, 6, (fileName->Length / sizeof(WCHAR)) - 6));
+            }
         }
         else
         {
-            if (PhStartsWithString2(fileName, L"amd64\\", TRUE) ||
-                PhStartsWithString2(fileName, L"arm64\\", TRUE))
+            if (PhStartsWithString2(fileName, L"amd64", TRUE) ||
+                PhStartsWithString2(fileName, L"arm64", TRUE))
             {
                 PhDereferenceObject(fileName);
                 continue;
             }
 
-            if (PhStartsWithString2(fileName, L"i386\\", TRUE))
+            if (PhStartsWithString2(fileName, L"i386", TRUE))
+            {
                 PhMoveReference(&fileName, PhSubstring(fileName, 5, (fileName->Length / sizeof(WCHAR)) - 5));
+            }
         }
 
         if (!(buffer = mz_zip_reader_extract_to_heap(ZipFileArchive, zipFileStat.m_file_index, &zipFileBufferLength, 0)))

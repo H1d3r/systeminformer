@@ -179,6 +179,7 @@ HRESULT CALLBACK SetupWelcomePageCallbackProc(
     {
     case TDN_NAVIGATED:
         {
+            SetupApplyDarkModeToPage(hwndDlg);
             PhCenterWindow(hwndDlg, NULL);
 
             if (!PhGetOwnTokenAttributes().Elevated)
@@ -558,6 +559,7 @@ HRESULT CALLBACK SetupInstallPageCallbackProc(
     {
     case TDN_NAVIGATED:
         {
+            SetupApplyDarkModeToPage(hwndDlg);
             SendMessage(hwndDlg, TDM_SET_MARQUEE_PROGRESS_BAR, TRUE, 0);
             SendMessage(hwndDlg, TDM_SET_PROGRESS_BAR_MARQUEE, TRUE, 1);
 

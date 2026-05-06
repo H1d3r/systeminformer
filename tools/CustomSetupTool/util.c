@@ -2054,10 +2054,27 @@ NTSTATUS SetupCommitFile(
     if (!(sessionId = SetupGetSessionId(Context)))
         return STATUS_NO_MEMORY;
 
-    stagingName = PhaFormatString(L"%s.%s.new", PhGetString(FinalName), PhGetString(sessionId));
-    backupName = PhaFormatString(L"%s.%s.bak", PhGetString(FinalName), PhGetString(sessionId));
+    stagingName = PhFormatString(L"%s.%s.new", PhGetString(FinalName), PhGetString(sessionId));
+    backupName = PhFormatString(L"%s.%s.bak", PhGetString(FinalName), PhGetString(sessionId));
 
+    // Remove any stale .bak left by a previous failed install. An explicit delete
+    // is more reliable than relying solely on ReplaceIfExists: it clears read-only
+    // attributes and avoids STATUS_INVALID_PARAMETER on some filesystem configurations.
+    //
+    // Guard: only delete .bak when FinalName still exists (step 1 has not yet run).
+    // If FinalName is already gone the .bak holds the original file that was renamed
+    // there by step 1 of a prior retry attempt - deleting it would destroy the only
+    // copy available for rollback.
+    if (PhDoesFileExistWin32(PhGetString(FinalName)) &&
+        PhDoesFileExistWin32(PhGetString(backupName)))
+    {
+        PhDeleteFileWin32(PhGetString(backupName));
+    }
+
+    //
     // If target exists, rename it to .bak
+    //
+
     if (PhDoesFileExistWin32(PhGetString(FinalName)))
     {
         HANDLE targetHandle;
@@ -2065,7 +2082,7 @@ NTSTATUS SetupCommitFile(
         status = PhCreateFileWin32Ex(
             &targetHandle,
             PhGetString(FinalName),
-            DELETE,
+            FILE_GENERIC_WRITE | DELETE,
             NULL,
             FILE_ATTRIBUTE_NORMAL,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -2076,19 +2093,26 @@ NTSTATUS SetupCommitFile(
 
         if (NT_SUCCESS(status))
         {
-            status = PhSetFileRename(targetHandle, NULL, TRUE, &backupName->sr);
+            PPH_STRING baseName = PhGetBaseName(backupName);
+
+            status = PhSetFileRename(targetHandle, NULL, TRUE, &baseName->sr);
+
+            PhDereferenceObject(baseName);
             NtClose(targetHandle);
         }
 
         if (!NT_SUCCESS(status))
-            return status;
+            goto CleanupExit;
     }
 
+    //
     // Rename .new to FinalName
+    //
+
     status = PhCreateFileWin32Ex(
         &fileHandle,
         PhGetString(stagingName),
-        DELETE,
+        FILE_GENERIC_WRITE | DELETE,
         NULL,
         FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -2099,8 +2123,24 @@ NTSTATUS SetupCommitFile(
 
     if (NT_SUCCESS(status))
     {
-        status = PhSetFileRename(fileHandle, NULL, TRUE, &FinalName->sr);
+        PPH_STRING baseName = PhGetBaseName(FinalName);
+
+        status = PhSetFileRename(fileHandle, NULL, TRUE, &baseName->sr);
+
+        PhDereferenceObject(baseName);
         NtClose(fileHandle);
+    }
+
+CleanupExit:
+
+    if (backupName)
+    {
+        PhDereferenceObject(backupName);
+    }
+
+    if (stagingName)
+    {
+        PhDereferenceObject(stagingName);
     }
 
     return status;
@@ -2125,8 +2165,8 @@ NTSTATUS SetupRollbackFile(
     if (!(sessionId = SetupGetSessionId(Context)))
         return STATUS_NO_MEMORY;
 
-    stagingName = PhaFormatString(L"%s.%s.new", PhGetString(FinalName), PhGetString(sessionId));
-    backupName = PhaFormatString(L"%s.%s.bak", PhGetString(FinalName), PhGetString(sessionId));
+    stagingName = PhFormatString(L"%s.%s.new", PhGetString(FinalName), PhGetString(sessionId));
+    backupName = PhFormatString(L"%s.%s.bak", PhGetString(FinalName), PhGetString(sessionId));
 
     // Delete .new
     PhDeleteFileWin32(PhGetString(stagingName));
@@ -2153,6 +2193,16 @@ NTSTATUS SetupRollbackFile(
         }
     }
 
+    if (backupName)
+    {
+        PhDereferenceObject(backupName);
+    }
+
+    if (stagingName)
+    {
+        PhDereferenceObject(stagingName);
+    }
+
     return STATUS_SUCCESS;
 }
 
@@ -2174,7 +2224,7 @@ NTSTATUS SetupFinalizeFile(
     if (!(sessionId = SetupGetSessionId(Context)))
         return STATUS_NO_MEMORY;
 
-    backupName = PhaFormatString(L"%s.%s.bak", PhGetString(FinalName), PhGetString(sessionId));
+    backupName = PhFormatString(L"%s.%s.bak", PhGetString(FinalName), PhGetString(sessionId));
 
     // Delete .bak (best effort)
     if (!PhDeleteFileWin32(PhGetString(backupName)))

@@ -157,6 +157,8 @@ HRESULT CALLBACK SetupTaskDialogBootstrapCallback(
             PhSetWindowContext(hwndDlg, UCHAR_MAX, context);
             PhSetWindowProcedure(hwndDlg, SetupTaskDialogSubclassProc);
 
+            SetupApplyDarkModeToPage(hwndDlg);
+
             switch (context->SetupMode)
             {
             default:
@@ -613,7 +615,10 @@ INT WINAPI wWinMain(
     {
         PhGuiSupportInitialization();
 
-        SetupShowDialog(context);
+        if (context->SetupMode == SetupCommandInstall)
+            SetupShowWizard(context);
+        else
+            SetupShowDialog(context);
     }
 
     if (context->SubProcessHandle)
