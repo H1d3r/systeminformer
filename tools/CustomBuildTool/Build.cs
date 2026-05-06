@@ -1369,13 +1369,13 @@ namespace CustomBuildTool
             if (!string.IsNullOrWhiteSpace(Build.BuildCommitHash))
                 preprocessorOptionsList.Add($"PHAPP_VERSION_COMMITHASH=\"{Build.BuildHash()}\"");
             if (!string.IsNullOrWhiteSpace(Build.BuildVersionMajor))
-                preprocessorOptionsList.Add($"PHAPP_VERSION_MAJOR=\"{Build.BuildVersionMajor}\"");
+                preprocessorOptionsList.Add($"PHAPP_VERSION_MAJOR={Build.BuildVersionMajor}");
             if (!string.IsNullOrWhiteSpace(Build.BuildVersionMinor))
-                preprocessorOptionsList.Add($"PHAPP_VERSION_MINOR=\"{Build.BuildVersionMinor}\"");
+                preprocessorOptionsList.Add($"PHAPP_VERSION_MINOR={Build.BuildVersionMinor}");
             if (!string.IsNullOrWhiteSpace(Build.BuildVersionBuild()))
-                preprocessorOptionsList.Add($"PHAPP_VERSION_BUILD=\"{Build.BuildVersionBuild()}\"");
+                preprocessorOptionsList.Add($"PHAPP_VERSION_BUILD={Build.BuildVersionBuild()}");
             if (!string.IsNullOrWhiteSpace(Build.BuildVersionRevision()))
-                preprocessorOptionsList.Add($"PHAPP_VERSION_REVISION=\"{Build.BuildVersionRevision()}\"");
+                preprocessorOptionsList.Add($"PHAPP_VERSION_REVISION={Build.BuildVersionRevision()}");
 
             if (!string.IsNullOrWhiteSpace(Build.BuildSourceLink))
                 linkerOptionsBuilder.Append($"/SOURCELINK:\"{Build.BuildSourceLink}\"");
