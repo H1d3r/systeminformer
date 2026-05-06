@@ -241,7 +241,6 @@
           <TargetMachine>MachineX86</TargetMachine>
           <GenerateDebugInformation>true</GenerateDebugInformation>
           <SetChecksum>true</SetChecksum>
-          <StripPrivateSymbols>$(OutDir)$(TargetName)_stripped.pdb</StripPrivateSymbols>
           <OptimizeReferences>true</OptimizeReferences>
           <EnableCOMDATFolding>true</EnableCOMDATFolding>
           <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
@@ -279,7 +278,6 @@
           <TargetMachine>MachineX64</TargetMachine>
           <GenerateDebugInformation>true</GenerateDebugInformation>
           <SetChecksum>true</SetChecksum>
-          <StripPrivateSymbols>$(OutDir)$(TargetName)_stripped.pdb</StripPrivateSymbols>
           <OptimizeReferences>true</OptimizeReferences>
           <EnableCOMDATFolding>true</EnableCOMDATFolding>
           <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
@@ -315,7 +313,6 @@
           <TargetMachine>MachineARM64</TargetMachine>
           <GenerateDebugInformation>true</GenerateDebugInformation>
           <SetChecksum>true</SetChecksum>
-          <StripPrivateSymbols>$(OutDir)$(TargetName)_stripped.pdb</StripPrivateSymbols>
           <OptimizeReferences>true</OptimizeReferences>
           <EnableCOMDATFolding>true</EnableCOMDATFolding>
           <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
