@@ -1203,7 +1203,16 @@ NTSTATUS KphQueryInformationObject(
             // work around this bug, we add some (generous) padding to our
             // allocation.
             //
-            allocateSize += sizeof(ULONG64);
+            status = RtlULongAdd(allocateSize, sizeof(ULONG64), &allocateSize);
+            if (!NT_SUCCESS(status))
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              GENERAL,
+                              "RtlULongAdd failed: %!STATUS!",
+                              status);
+
+                goto Exit;
+            }
 
             buffer = KphAllocatePagedA(allocateSize,
                                        KPH_TAG_OBJECT_QUERY,
@@ -1655,7 +1664,16 @@ NTSTATUS KphQueryInformationObject(
             {
                 allocateSize = sizeof(THREAD_NAME_INFORMATION);
             }
-            allocateSize += sizeof(ULONG64);
+            status = RtlULongAdd(allocateSize, sizeof(ULONG64), &allocateSize);
+            if (!NT_SUCCESS(status))
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              GENERAL,
+                              "RtlULongAdd failed: %!STATUS!",
+                              status);
+
+                goto Exit;
+            }
 
             buffer = KphAllocatePagedA(allocateSize,
                                        KPH_TAG_OBJECT_QUERY,
@@ -1839,7 +1857,16 @@ NTSTATUS KphQueryInformationObject(
             {
                 allocateSize = sizeof(UNICODE_STRING);
             }
-            allocateSize += sizeof(ULONG64);
+            status = RtlULongAdd(allocateSize, sizeof(ULONG64), &allocateSize);
+            if (!NT_SUCCESS(status))
+            {
+                KphTracePrint(TRACE_LEVEL_VERBOSE,
+                              GENERAL,
+                              "RtlULongAdd failed: %!STATUS!",
+                              status);
+
+                goto Exit;
+            }
 
             buffer = KphAllocatePagedA(allocateSize,
                                        KPH_TAG_OBJECT_QUERY,
