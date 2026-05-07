@@ -1229,7 +1229,7 @@ NTSTATUS KphQueryInformationObject(
             status = ZwQueryObject(Handle,
                                    ObjectTypeInformation,
                                    typeInfo,
-                                   ObjectInformationLength,
+                                   allocateSize,
                                    &returnLength);
             KeUnstackDetachProcess(&apcState);
             if (NT_SUCCESS(status))
@@ -1690,7 +1690,7 @@ NTSTATUS KphQueryInformationObject(
             status = ZwQueryInformationThread(Handle,
                                               ThreadNameInformation,
                                               nameInfo,
-                                              ObjectInformationLength,
+                                              allocateSize,
                                               &returnLength);
             KeUnstackDetachProcess(&apcState);
             if (NT_SUCCESS(status))
@@ -1920,7 +1920,7 @@ NTSTATUS KphQueryInformationObject(
                                               baseAddress,
                                               MemoryMappedFilenameInformation,
                                               sectionFileName,
-                                              ObjectInformationLength,
+                                              allocateSize,
                                               &length);
                 if (length > ULONG_MAX)
                 {
