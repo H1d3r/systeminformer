@@ -956,7 +956,7 @@ NTSTATUS UpdateDownloadThread(
 
     SendMessage(context->DialogHandle, TDM_UPDATE_ELEMENT_TEXT, TDE_MAIN_INSTRUCTION, (LPARAM)L"Connecting...");
 
-    if (!NT_SUCCESS(status = PhHttpInitialize(&httpContext, NULL)))
+    if (!NT_SUCCESS(status = PhHttpInitialize(&httpContext)))
         goto CleanupExit;
 
     PhHttpSetProtocol(httpContext, TRUE, PH_HTTP_PROTOCOL_FLAG_HTTP2, 5000);
