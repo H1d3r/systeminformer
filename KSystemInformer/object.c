@@ -1224,6 +1224,7 @@ NTSTATUS KphQueryInformationObject(
             }
 
             typeInfo = (POBJECT_TYPE_INFORMATION)buffer;
+            NT_ASSERT(allocateSize >= ObjectInformationLength);
 
             KeStackAttachProcess(process, &apcState);
             status = ZwQueryObject(Handle,
@@ -1664,6 +1665,7 @@ NTSTATUS KphQueryInformationObject(
             {
                 allocateSize = sizeof(THREAD_NAME_INFORMATION);
             }
+
             status = RtlULongAdd(allocateSize, sizeof(ULONG64), &allocateSize);
             if (!NT_SUCCESS(status))
             {
@@ -1685,6 +1687,7 @@ NTSTATUS KphQueryInformationObject(
             }
 
             nameInfo = (PTHREAD_NAME_INFORMATION)buffer;
+            NT_ASSERT(allocateSize >= ObjectInformationLength);
 
             KeStackAttachProcess(process, &apcState);
             status = ZwQueryInformationThread(Handle,
@@ -1857,6 +1860,7 @@ NTSTATUS KphQueryInformationObject(
             {
                 allocateSize = sizeof(UNICODE_STRING);
             }
+
             status = RtlULongAdd(allocateSize, sizeof(ULONG64), &allocateSize);
             if (!NT_SUCCESS(status))
             {
@@ -1878,6 +1882,7 @@ NTSTATUS KphQueryInformationObject(
             }
 
             sectionFileName = (PUNICODE_STRING)buffer;
+            NT_ASSERT(allocateSize >= ObjectInformationLength);
 
             status = ObDuplicateObject(process,
                                        Handle,
